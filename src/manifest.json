@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Extension",
+  "version": "1.0.0",
+  "description": "A browser extension built with TypeScript and Webpack",
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/index.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/index.js"]
+    }
+  ]
+}
