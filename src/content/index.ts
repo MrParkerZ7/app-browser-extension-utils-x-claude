@@ -1,6 +1,7 @@
 // Content script - runs in the context of web pages
+import { createLogger } from '../shared/logger';
 
-console.log('Content script loaded');
+const logger = createLogger('content');
 
 // Example: Send message to background script
 function sendMessageToBackground(message: { type: string; payload?: unknown }) {
@@ -17,7 +18,35 @@ function sendMessageToBackground(message: { type: string; payload?: unknown }) {
 
 // Example: DOM manipulation
 function init() {
-  console.log('Content script initialized on:', window.location.href);
+  logger.info('Content script initialized', {
+    url: window.location.href,
+    title: document.title
+  });
+
+  // Log page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    logger.debug('Visibility changed', {
+      hidden: document.hidden,
+      state: document.visibilityState
+    });
+  });
+
+  // Log errors on the page
+  window.addEventListener('error', (event) => {
+    logger.error('Page error caught', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+    });
+  });
+
+  // Log unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    logger.error('Unhandled promise rejection', {
+      reason: String(event.reason),
+    });
+  });
 }
 
 // Run when DOM is ready
@@ -27,4 +56,4 @@ if (document.readyState === 'loading') {
   init();
 }
 
-export { sendMessageToBackground };
+export { sendMessageToBackground, logger };
