@@ -4,6 +4,9 @@ import { createLogger, getLogs, clearLogs } from '../shared/logger';
 
 const logger = createLogger('popup');
 
+// Larger window size when opening externally
+const WINDOW_SIZE = { width: 1280, height: 800 };
+
 // State
 let allLogs: LogEntry[] = [];
 let filteredLogs: LogEntry[] = [];
@@ -237,8 +240,28 @@ function setupRealtimeUpdates(): void {
   });
 }
 
+function setupOpenWindow(): void {
+  const openWindowBtn = document.getElementById('openWindowBtn') as HTMLButtonElement;
+
+  openWindowBtn.addEventListener('click', () => {
+    const popupUrl = chrome.runtime.getURL('popup/popup.html');
+
+    chrome.windows.create({
+      url: popupUrl,
+      type: 'popup',
+      width: WINDOW_SIZE.width,
+      height: WINDOW_SIZE.height,
+    });
+
+    // Close the popup
+    window.close();
+  });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  setupOpenWindow();
+
   logger.info('Popup opened');
 
   setupTabSwitching();
