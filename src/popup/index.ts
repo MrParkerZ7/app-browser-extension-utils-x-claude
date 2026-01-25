@@ -1,5 +1,5 @@
 // Popup script
-import { LogEntry, LogLevel, LogSource } from '../shared/types';
+import { LogEntry, LogLevel, LogSource, CSSSearchResult } from '../shared/types';
 import { createLogger, getLogs, clearLogs } from '../shared/logger';
 
 const logger = createLogger('popup');
@@ -444,6 +444,156 @@ function setupSorting(): void {
   });
 }
 
+// ============================================
+// CSS Counter Feature (searches content page)
+// ============================================
+
+function updateCSSCounterUI(result: CSSSearchResult): void {
+  const counterGrid = document.getElementById('counterResults') as HTMLElement;
+  counterGrid.innerHTML = '';
+
+  const metrics: { key: keyof CSSSearchResult; label: string }[] = [
+    { key: 'elements', label: 'Elements Matched' },
+    { key: 'classes', label: 'Classes Found' },
+    { key: 'ids', label: 'IDs Found' },
+    { key: 'inlineStyles', label: 'Inline Styles' },
+    { key: 'stylesheetRules', label: 'Stylesheet Rules' },
+    { key: 'computedMatches', label: 'Computed Matches' },
+  ];
+
+  metrics.forEach(({ key, label }) => {
+    const value = result[key];
+    if (typeof value === 'number' && value === 0) return;
+    if (key === 'query') return;
+
+    const card = document.createElement('div');
+    card.className = 'counter-card';
+    card.innerHTML = `
+      <span class="counter-value">${(value as number).toLocaleString()}</span>
+      <span class="counter-label">${label}</span>
+    `;
+    counterGrid.appendChild(card);
+  });
+}
+
+function showCSSStatus(message: string, type: 'error' | 'info'): void {
+  const statusEl = document.getElementById('cssStatus') as HTMLElement;
+  statusEl.textContent = message;
+  statusEl.className = `css-counter-status visible ${type}`;
+}
+
+function hideCSSStatus(): void {
+  const statusEl = document.getElementById('cssStatus') as HTMLElement;
+  statusEl.classList.remove('visible');
+}
+
+async function performCSSSearch(): Promise<void> {
+  const cssInput = document.getElementById('cssInput') as HTMLInputElement;
+  const resultsSection = document.querySelector('.css-counter-results') as HTMLElement;
+  const query = cssInput.value.trim();
+
+  hideCSSStatus();
+
+  if (query.length === 0) {
+    resultsSection.classList.remove('visible');
+    return;
+  }
+
+  // Get current active tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    showCSSStatus('No active tab found', 'error');
+    logger.error('No active tab found');
+    return;
+  }
+
+  // Check if it's a restricted page
+  if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
+    showCSSStatus('Cannot search on browser internal pages', 'error');
+    resultsSection.classList.remove('visible');
+    return;
+  }
+
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: 'CSS_SEARCH',
+      payload: { query },
+    });
+
+    if (response?.success && response.data) {
+      hideCSSStatus();
+      updateCSSCounterUI(response.data as CSSSearchResult);
+      resultsSection.classList.add('visible');
+    } else {
+      showCSSStatus('No results or invalid response', 'info');
+      resultsSection.classList.remove('visible');
+    }
+  } catch {
+    // Content script not loaded - try to inject it
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content/index.js'],
+      });
+
+      // Wait a moment for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Retry the search
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'CSS_SEARCH',
+        payload: { query },
+      });
+
+      if (response?.success && response.data) {
+        hideCSSStatus();
+        updateCSSCounterUI(response.data as CSSSearchResult);
+        resultsSection.classList.add('visible');
+      }
+    } catch (injectError) {
+      const errorMsg = injectError instanceof Error ? injectError.message : JSON.stringify(injectError);
+      showCSSStatus('Cannot access this page', 'error');
+      logger.error('CSS search failed', { error: errorMsg });
+      resultsSection.classList.remove('visible');
+    }
+  }
+}
+
+async function setupCSSCounter(): Promise<void> {
+  const cssInput = document.getElementById('cssInput') as HTMLInputElement;
+  const recountBtn = document.getElementById('recountBtn') as HTMLButtonElement;
+
+  // Load saved input value
+  const stored = await chrome.storage.local.get('cssCounterInput');
+  if (stored.cssCounterInput) {
+    cssInput.value = stored.cssCounterInput;
+    // Auto-search with saved value
+    performCSSSearch();
+  }
+
+  // Auto-search on input (debounced) and save to storage
+  let debounceTimer: number;
+  cssInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(async () => {
+      await chrome.storage.local.set({ cssCounterInput: cssInput.value });
+      performCSSSearch();
+    }, 500);
+  });
+
+  // Re-count button
+  recountBtn.addEventListener('click', () => {
+    performCSSSearch();
+  });
+
+  // Search on Enter key
+  cssInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      performCSSSearch();
+    }
+  });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   // Load settings first
@@ -452,6 +602,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupOpenWindow();
   setupColumnSettings();
   setupSorting();
+  await setupCSSCounter();
 
   // Apply loaded settings to UI
   updateColumnVisibilityUI();

@@ -19,13 +19,26 @@ export interface LogState {
   maxLogs: number;
 }
 
+// CSS Counter result from content script
+export interface CSSSearchResult {
+  query: string;
+  elements: number;
+  classes: number;
+  ids: number;
+  inlineStyles: number;
+  stylesheetRules: number;
+  computedMatches: number;
+}
+
 // Message types for communication
 export type MessageType =
   | { type: 'LOG_ENTRY'; payload: Omit<LogEntry, 'id'> }
   | { type: 'GET_LOGS'; payload?: undefined }
   | { type: 'CLEAR_LOGS'; payload?: undefined }
   | { type: 'LOGS_UPDATED'; payload: LogEntry[] }
-  | { type: 'GET_DATA'; payload?: undefined };
+  | { type: 'GET_DATA'; payload?: undefined }
+  | { type: 'CSS_SEARCH'; payload: { query: string } }
+  | { type: 'CSS_SEARCH_RESULT'; payload: CSSSearchResult };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

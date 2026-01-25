@@ -14,15 +14,13 @@ class Logger {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async getTabInfo(): Promise<{ tabId?: number; url?: string }> {
-    if (this.source === 'content') {
-      return { url: window.location.href };
+  private sendLog(level: LogLevel, message: string, data?: unknown): void {
+    // Check if extension context is valid before doing anything
+    if (!this.isBackground && (typeof chrome === 'undefined' || !chrome.runtime?.id)) {
+      return;
     }
-    return {};
-  }
 
-  private async sendLog(level: LogLevel, message: string, data?: unknown): Promise<void> {
-    const tabInfo = await this.getTabInfo();
+    const tabInfo = this.source === 'content' ? { url: window.location.href } : {};
 
     const logEntry: Omit<LogEntry, 'id'> = {
       timestamp: Date.now(),
@@ -44,11 +42,21 @@ class Logger {
       }
     } else {
       // Send to background for storage
-      try {
-        chrome.runtime.sendMessage({ type: 'LOG_ENTRY', payload: logEntry });
-      } catch (error) {
-        console.error('Failed to send log to background:', error);
+      this.safeSendMessage(logEntry);
+    }
+  }
+
+  private safeSendMessage(logEntry: Omit<LogEntry, 'id'>): void {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+        return;
       }
+      chrome.runtime.sendMessage({ type: 'LOG_ENTRY', payload: logEntry }, () => {
+        // Suppress any errors
+        void chrome.runtime.lastError;
+      });
+    } catch {
+      // Ignore all errors
     }
   }
 

@@ -541,6 +541,129 @@
       background: #8b2e2e;
       color: #fff;
     }
+
+    /* CSS Counter Styles */
+    .css-counter-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .css-counter-input-section {
+      margin-bottom: 16px;
+    }
+
+    .css-counter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .css-counter-header h2 {
+      font-size: 16px;
+      color: #e0e0e0;
+      margin: 0;
+    }
+
+    .css-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .css-input:focus {
+      border-color: #64ffda;
+    }
+
+    .css-input::placeholder {
+      color: #5a6a7a;
+    }
+
+    .css-counter-status {
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .css-counter-status.visible {
+      display: block;
+    }
+
+    .css-counter-status.error {
+      background: #3d0a0a;
+      color: #ff6b6b;
+      border: 1px solid #5c1e1e;
+    }
+
+    .css-counter-status.info {
+      background: #0a3d3d;
+      color: #64ffda;
+      border: 1px solid #1a5a4a;
+    }
+
+    .css-counter-results {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 16px;
+      display: none;
+    }
+
+    .css-counter-results.visible {
+      display: block;
+    }
+
+    .css-counter-results h3 {
+      font-size: 14px;
+      color: #8892b0;
+      margin: 0 0 12px 0;
+      font-weight: 500;
+    }
+
+    .counter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .counter-card {
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .counter-card:hover {
+      border-color: #1a4a7a;
+    }
+
+    .counter-value {
+      display: block;
+      font-size: 20px;
+      font-weight: 600;
+      color: #64ffda;
+      margin-bottom: 4px;
+    }
+
+    .counter-label {
+      display: block;
+      font-size: 11px;
+      color: #8892b0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
@@ -561,7 +684,7 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="tab-logging">Logging</button>
-    <button class="tab" data-tab="tab2">Tab 2</button>
+    <button class="tab" data-tab="tab-css-counter">CSS Counter</button>
     <button class="tab" data-tab="tab3">Tab 3</button>
   </div>
 
@@ -640,11 +763,27 @@
       </div>
     </div>
 
-    <!-- Tab 2 -->
-    <div id="tab2" class="tab-panel">
-      <div class="panel-container">
-        <h2>Tab 2 Content</h2>
-        <p>This is the second tab. Add your content here.</p>
+    <!-- CSS Counter Tab -->
+    <div id="tab-css-counter" class="tab-panel">
+      <div class="css-counter-container">
+        <div class="css-counter-input-section">
+          <div class="css-counter-header">
+            <h2>CSS / HTML Counter</h2>
+            <button class="btn btn-primary" id="recountBtn">Re-count</button>
+          </div>
+          <input
+            type="text"
+            id="cssInput"
+            class="css-input"
+            placeholder="Paste your CSS, HTML classes, or styles here..."
+            spellcheck="false"
+          />
+        </div>
+        <div class="css-counter-status" id="cssStatus"></div>
+        <div class="css-counter-results">
+          <h3>Results</h3>
+          <div class="counter-grid" id="counterResults"></div>
+        </div>
       </div>
     </div>
 
