@@ -109,12 +109,14 @@ const logState: LogState = {
 
 ### Popup Dashboard (`src/popup/popup.html`, `src/popup/index.ts`)
 
-**Size:** 1280 x 1080 pixels
+**Size:**
+- **Popup mode:** 780 x 580 pixels (Chrome's max popup limit)
+- **Window mode:** Responsive, fills entire window (1280 x 800 default)
 
 **Layout:**
 ```
 ┌────────────────────────────────────────────────┐
-│ Header: Browser Extension                      │
+│ Header: Browser Extension              [↗]     │
 ├────────────────────────────────────────────────┤
 │ Tabs: [Logging] [Tab 2] [Tab 3]               │
 ├────────────────────────────────────────────────┤
@@ -133,6 +135,9 @@ const logState: LogState = {
 │ └──────┴────────┴───────┴─────────┴────┴─────┘│
 └────────────────────────────────────────────────┘
 ```
+
+**Open in Window:**
+The ↗ button in the header opens the dashboard in a separate browser window (1280 x 800) for a larger workspace. Content automatically fills the window size.
 
 ## Features
 
@@ -157,6 +162,7 @@ const logState: LogState = {
 ### Actions
 | Button | Action |
 |--------|--------|
+| ↗ Open in Window | Open dashboard in separate window (1280x800) |
 | Refresh | Reload logs from background |
 | Clear Logs | Delete all logs (with confirmation) |
 
