@@ -118,7 +118,7 @@ const logState: LogState = {
 ┌────────────────────────────────────────────────┐
 │ Header: Browser Extension              [↗]     │
 ├────────────────────────────────────────────────┤
-│ Tabs: [Logging] [Tab 2] [Tab 3]               │
+│ Tabs: [Logging] [CSS Counter] [Tab 3]         │
 ├────────────────────────────────────────────────┤
 │ Toolbar:                                       │
 │ [All][Debug][Info][Warn][Error]               │
