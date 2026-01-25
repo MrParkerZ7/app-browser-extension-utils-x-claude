@@ -123,13 +123,14 @@ const logState: LogState = {
 │ Toolbar:                                       │
 │ [All][Debug][Info][Warn][Error]               │
 │ [All Sources][Background][Content][Popup]      │
-│ [Search...] [✓ Auto-scroll] [Refresh][Clear]  │
+│ [Search...] [✓ Auto-scroll]                   │
+│ [Columns ▼] [Refresh][Clear]                  │
 ├────────────────────────────────────────────────┤
 │ Stats: Debug: 0 | Info: 0 | Warn: 0 | Error: 0│
 ├────────────────────────────────────────────────┤
-│ Log Table                                      │
+│ Log Table (sortable headers)                   │
 │ ┌──────┬────────┬───────┬─────────┬────┬─────┐│
-│ │ Time │ Source │ Level │ Message │Data│ URL ││
+│ │Time▼ │ Source │ Level │ Message │Data│ URL ││
 │ ├──────┼────────┼───────┼─────────┼────┼─────┤│
 │ │ ...  │ ...    │ ...   │ ...     │... │ ... ││
 │ └──────┴────────┴───────┴─────────┴────┴─────┘│
@@ -159,10 +160,33 @@ The ↗ button in the header opens the dashboard in a separate browser window (1
 | Data cell | Truncated JSON, expands on hover |
 | URL cell | Truncated, full path on hover |
 
+### Column Customization
+
+**Visibility (Hide/Show):**
+- Click "Columns" button in toolbar to open dropdown
+- Toggle checkboxes to show/hide individual columns
+- Available columns: Time, Source, Level, Message, Data, URL
+- Settings persist to `chrome.storage.local`
+
+**Sorting:**
+- Click any sortable column header to sort
+- First click: descending order (▼)
+- Second click: ascending order (▲)
+- Third click: clear sorting
+- Sortable columns: Time, Source, Level, Message, URL
+- Sort indicator shows current state (▲▼)
+
+**Reset:**
+- Click "Reset All Settings" in Columns dropdown
+- Restores all columns to visible
+- Clears any active sorting
+
 ### Actions
 | Button | Action |
 |--------|--------|
 | ↗ Open in Window | Open dashboard in separate window (1280x800) |
+| Columns | Toggle column visibility dropdown |
+| Reset All Settings | Clear visibility and sorting settings |
 | Refresh | Reload logs from background |
 | Clear Logs | Delete all logs (with confirmation) |
 
