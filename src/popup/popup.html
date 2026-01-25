@@ -232,6 +232,49 @@
       color: #8892b0;
       border-bottom: 1px solid #0f3460;
       white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .log-table th:hover {
+      background: #1a4a6a;
+    }
+
+    .log-table th.hidden-col,
+    .log-table td.hidden-col {
+      display: none;
+    }
+
+    .th-content {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sort-icon {
+      opacity: 0.3;
+      font-size: 10px;
+    }
+
+    .log-table th.sort-asc .sort-icon,
+    .log-table th.sort-desc .sort-icon {
+      opacity: 1;
+      color: #64ffda;
+    }
+
+    .log-table th.sort-asc .sort-icon::after {
+      content: '▲';
+    }
+
+    .log-table th.sort-desc .sort-icon::after {
+      content: '▼';
+    }
+
+    .log-table th:not(.sort-asc):not(.sort-desc) .sort-icon::after {
+      content: '▲▼';
+      font-size: 8px;
+      letter-spacing: -2px;
     }
 
     .log-table td {
@@ -410,6 +453,94 @@
       background: #1a4a7a;
       border-color: #64ffda;
     }
+
+    /* Column Settings Dropdown */
+    .column-settings {
+      position: relative;
+    }
+
+    .column-settings-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: #0f3460;
+      border: 1px solid #1a4a7a;
+      border-radius: 4px;
+      color: #8892b0;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .column-settings-btn:hover {
+      background: #1a4a7a;
+      color: #e0e0e0;
+    }
+
+    .column-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 8px 0;
+      min-width: 160px;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .column-dropdown.show {
+      display: block;
+    }
+
+    .column-dropdown label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #8892b0;
+      transition: background 0.2s;
+    }
+
+    .column-dropdown label:hover {
+      background: rgba(100, 255, 218, 0.05);
+      color: #e0e0e0;
+    }
+
+    .column-dropdown input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: #64ffda;
+    }
+
+    .column-dropdown-divider {
+      height: 1px;
+      background: #0f3460;
+      margin: 8px 0;
+    }
+
+    .column-dropdown button {
+      width: calc(100% - 16px);
+      margin: 4px 8px;
+      padding: 6px 12px;
+      background: #5c1e1e;
+      border: 1px solid #8b2e2e;
+      border-radius: 4px;
+      color: #ff6b6b;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .column-dropdown button:hover {
+      background: #8b2e2e;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -456,6 +587,27 @@
           <input type="checkbox" id="autoScroll" checked>
           Auto-scroll
         </label>
+        <div class="column-settings">
+          <button class="column-settings-btn" id="columnSettingsBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Columns
+          </button>
+          <div class="column-dropdown" id="columnDropdown">
+            <label><input type="checkbox" data-col="time" checked> Time</label>
+            <label><input type="checkbox" data-col="source" checked> Source</label>
+            <label><input type="checkbox" data-col="level" checked> Level</label>
+            <label><input type="checkbox" data-col="message" checked> Message</label>
+            <label><input type="checkbox" data-col="data" checked> Data</label>
+            <label><input type="checkbox" data-col="url" checked> URL</label>
+            <div class="column-dropdown-divider"></div>
+            <button id="resetTableSettings">Reset All Settings</button>
+          </div>
+        </div>
         <div class="log-actions">
           <button class="btn btn-primary" id="refreshLogs">Refresh</button>
           <button class="btn btn-danger" id="clearLogs">Clear Logs</button>
@@ -474,12 +626,12 @@
         <table class="log-table">
           <thead>
             <tr>
-              <th style="width: 160px;">Time</th>
-              <th style="width: 100px;">Source</th>
-              <th style="width: 80px;">Level</th>
-              <th style="width: 400px;">Message</th>
-              <th style="width: 250px;">Data</th>
-              <th>URL</th>
+              <th data-col="time" data-sort="timestamp" style="width: 160px;"><span class="th-content">Time<span class="sort-icon"></span></span></th>
+              <th data-col="source" data-sort="source" style="width: 100px;"><span class="th-content">Source<span class="sort-icon"></span></span></th>
+              <th data-col="level" data-sort="level" style="width: 80px;"><span class="th-content">Level<span class="sort-icon"></span></span></th>
+              <th data-col="message" data-sort="message" style="width: 400px;"><span class="th-content">Message<span class="sort-icon"></span></span></th>
+              <th data-col="data" style="width: 250px;"><span class="th-content">Data</span></th>
+              <th data-col="url" data-sort="url"><span class="th-content">URL<span class="sort-icon"></span></span></th>
             </tr>
           </thead>
           <tbody id="logTableBody">
