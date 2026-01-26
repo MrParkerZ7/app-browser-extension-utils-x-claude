@@ -26,6 +26,12 @@ export interface CSSSearchResult {
   textMatches: number;
 }
 
+// FB Auto Reply types
+export interface FBReplyResult {
+  success: boolean;
+  error?: string;
+}
+
 // Message types for communication
 export type MessageType =
   | { type: 'LOG_ENTRY'; payload: Omit<LogEntry, 'id'> }
@@ -34,7 +40,9 @@ export type MessageType =
   | { type: 'LOGS_UPDATED'; payload: LogEntry[] }
   | { type: 'GET_DATA'; payload?: undefined }
   | { type: 'CSS_SEARCH'; payload: { query: string } }
-  | { type: 'CSS_SEARCH_RESULT'; payload: CSSSearchResult };
+  | { type: 'CSS_SEARCH_RESULT'; payload: CSSSearchResult }
+  | { type: 'FB_AUTO_REPLY'; payload: { message: string } }
+  | { type: 'FB_AUTO_REPLY_RESULT'; payload: FBReplyResult };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

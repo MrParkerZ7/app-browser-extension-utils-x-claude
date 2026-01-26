@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "A browser extension built with TypeScript and Webpack",
   "permissions": ["storage", "activeTab", "tabs", "scripting"],
+  "host_permissions": ["*://*.facebook.com/*", "<all_urls>"],
   "action": {
     "default_popup": "popup/popup.html"
   },
@@ -13,7 +14,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/index.js"]
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
     }
   ]
 }

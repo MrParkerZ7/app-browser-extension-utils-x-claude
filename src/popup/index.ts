@@ -712,6 +712,342 @@ async function setupCSSCounter(): Promise<void> {
   });
 }
 
+// ============================================
+// FB Auto Reply Feature
+// ============================================
+
+interface FBTab {
+  id: number;
+  index: number;
+  title: string;
+  url: string;
+  status: 'skip' | 'pending' | 'processing' | 'done' | 'error';
+  error?: string;
+}
+
+let fbTabs: FBTab[] = [];
+let fbReplyRunning = false;
+let fbReplyAbort = false;
+
+function isFacebookCommentUrl(url: string): boolean {
+  return url.includes('facebook.com') && url.includes('comment_id');
+}
+
+// Centralized function to update button states based on current status
+function updateFBButtonStates(): void {
+  const startBtn = document.getElementById('fbStartReplyBtn') as HTMLButtonElement;
+  const stopBtn = document.getElementById('fbStopReplyBtn') as HTMLButtonElement;
+  const scanBtn = document.getElementById('fbScanTabsBtn') as HTMLButtonElement;
+
+  const hasPendingTabs = fbTabs.some(t => t.status === 'pending');
+  const hasProcessingTabs = fbTabs.some(t => t.status === 'processing');
+
+  // Scan button: disabled when running
+  scanBtn.disabled = fbReplyRunning;
+
+  // Start button: enabled when not running AND has pending tabs
+  startBtn.disabled = fbReplyRunning || !hasPendingTabs;
+
+  // Stop button: enabled only when running
+  stopBtn.disabled = !fbReplyRunning;
+
+  // Update button text to show current state
+  if (fbReplyRunning) {
+    startBtn.textContent = hasProcessingTabs ? 'Running...' : 'Start Auto Reply';
+  } else {
+    startBtn.textContent = 'Start Auto Reply';
+  }
+}
+
+function showFBStatus(message: string, type: 'error' | 'info' | 'warning'): void {
+  const statusEl = document.getElementById('fbReplyStatus') as HTMLElement;
+  statusEl.textContent = message;
+  statusEl.className = `fb-reply-status visible ${type}`;
+}
+
+function hideFBStatus(): void {
+  const statusEl = document.getElementById('fbReplyStatus') as HTMLElement;
+  statusEl.classList.remove('visible');
+}
+
+function updateFBProgress(completed: number, total: number): void {
+  const progressEl = document.getElementById('fbReplyProgress') as HTMLElement;
+  const fillEl = document.getElementById('fbProgressFill') as HTMLElement;
+  const textEl = document.getElementById('fbProgressText') as HTMLElement;
+
+  if (total === 0) {
+    progressEl.classList.remove('visible');
+    return;
+  }
+
+  progressEl.classList.add('visible');
+  const percent = (completed / total) * 100;
+  fillEl.style.width = `${percent}%`;
+  textEl.textContent = `${completed} / ${total} completed`;
+}
+
+function renderFBTabs(): void {
+  const listEl = document.getElementById('fbTabsList') as HTMLElement;
+  const countEl = document.getElementById('fbTabCount') as HTMLElement;
+
+  countEl.textContent = String(fbTabs.length);
+  listEl.innerHTML = '';
+
+  fbTabs.forEach((tab, index) => {
+    const div = document.createElement('div');
+    div.className = `fb-tab-item ${tab.status}`;
+    if (tab.status === 'skip') div.classList.add('skipped');
+    if (tab.status === 'done') div.classList.add('completed');
+    if (tab.status === 'processing') div.classList.add('current');
+    if (tab.status === 'error') div.classList.add('failed');
+
+    const statusLabels: Record<string, string> = {
+      skip: 'Skip',
+      pending: 'Pending',
+      processing: 'Processing',
+      done: 'Done',
+      error: 'Error',
+    };
+
+    div.innerHTML = `
+      <span class="fb-tab-index">#${index + 1}</span>
+      <span class="fb-tab-title" title="${tab.url}">${tab.title || 'Facebook Tab'}</span>
+      <span class="fb-tab-status ${tab.status}">${statusLabels[tab.status]}</span>
+    `;
+    listEl.appendChild(div);
+  });
+}
+
+async function scanFBTabs(): Promise<void> {
+  logger.info('FB Auto Reply: Scanning for Facebook tabs');
+  hideFBStatus();
+  fbTabs = [];
+
+  const tabs = await chrome.tabs.query({});
+  const fbTabsFound = tabs.filter(t => t.url && isFacebookCommentUrl(t.url));
+
+  fbTabsFound.forEach((tab) => {
+    fbTabs.push({
+      id: tab.id!,
+      index: tab.index,
+      title: tab.title || 'Facebook',
+      url: tab.url || '',
+      status: 'pending',
+    });
+  });
+
+  logger.info('FB Auto Reply: Scan complete', {
+    totalTabs: fbTabs.length,
+    pendingTabs: fbTabs.filter(t => t.status === 'pending').length,
+  });
+
+  renderFBTabs();
+  updateFBButtonStates();
+
+  if (fbTabs.length > 0) {
+    showFBStatus(`Found ${fbTabs.length} FB comment tab(s) ready to reply.`, 'info');
+  } else {
+    showFBStatus('No Facebook comment tabs found.', 'warning');
+    logger.warn('FB Auto Reply: No Facebook comment tabs found');
+  }
+
+  updateFBProgress(0, 0);
+}
+
+async function startFBAutoReply(): Promise<void> {
+  const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
+  const delayEl = document.getElementById('fbReplyDelay') as HTMLInputElement;
+
+  const message = messageEl.value.trim();
+  const delay = parseInt(delayEl.value, 10) || 2000;
+
+  if (!message) {
+    showFBStatus('Please enter a reply message.', 'error');
+    logger.error('FB Auto Reply: No message provided');
+    return;
+  }
+
+  fbReplyRunning = true;
+  fbReplyAbort = false;
+  updateFBButtonStates();
+
+  const pendingTabs = fbTabs.filter(t => t.status === 'pending');
+  let completed = 0;
+  const total = pendingTabs.length;
+
+  logger.info('FB Auto Reply: Starting auto reply', {
+    message,
+    delay,
+    totalTabs: total,
+  });
+
+  updateFBProgress(0, total);
+  showFBStatus('Auto reply started...', 'info');
+
+  for (const tab of pendingTabs) {
+    if (fbReplyAbort) {
+      logger.warn('FB Auto Reply: Stopped by user', { completed, total });
+      showFBStatus('Auto reply stopped by user.', 'warning');
+      break;
+    }
+
+    const tabIndex = pendingTabs.indexOf(tab) + 1;
+    logger.info(`FB Auto Reply: Processing tab ${tabIndex}/${total}`, {
+      tabId: tab.id,
+      title: tab.title,
+      url: tab.url,
+    });
+
+    // Update status to processing
+    tab.status = 'processing';
+    renderFBTabs();
+    updateFBButtonStates();
+
+    try {
+      // Switch to the tab
+      logger.debug('FB Auto Reply: Switching to tab', { tabId: tab.id });
+      await chrome.tabs.update(tab.id, { active: true });
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Inject content script with retry
+      let scriptInjected = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content/index.js'],
+          });
+          logger.debug('FB Auto Reply: Content script injected', { tabId: tab.id, attempt });
+          scriptInjected = true;
+          break;
+        } catch (injectError) {
+          const errMsg = injectError instanceof Error ? injectError.message : String(injectError);
+          if (errMsg.includes('Cannot access') || errMsg.includes('not be scripted')) {
+            logger.error('FB Auto Reply: Cannot inject script (restricted page)', { tabId: tab.id });
+            throw new Error('Cannot inject script on this page');
+          }
+          logger.debug('FB Auto Reply: Script injection attempt failed', { tabId: tab.id, attempt, error: errMsg });
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+
+      // Wait for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Send auto reply message with retry
+      let response = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, message, attempt });
+          response = await chrome.tabs.sendMessage(tab.id, {
+            type: 'FB_AUTO_REPLY',
+            payload: { message },
+          });
+          break;
+        } catch (sendError) {
+          const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
+          logger.warn('FB Auto Reply: Message send failed', { tabId: tab.id, attempt, error: errMsg });
+          if (attempt < 3) {
+            // Try re-injecting script before retry
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['content/index.js'],
+              });
+            } catch {
+              // Ignore injection errors on retry
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            throw sendError;
+          }
+        }
+      }
+
+      if (response?.success) {
+        tab.status = 'done';
+        completed++;
+        logger.info(`FB Auto Reply: Tab ${tabIndex} completed successfully`, { tabId: tab.id });
+
+        // Close the tab after successful reply
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        logger.debug('FB Auto Reply: Closing tab', { tabId: tab.id });
+        await chrome.tabs.remove(tab.id);
+      } else {
+        tab.status = 'error';
+        tab.error = response?.error || 'Unknown error';
+        logger.error(`FB Auto Reply: Tab ${tabIndex} failed`, {
+          tabId: tab.id,
+          error: tab.error,
+        });
+      }
+    } catch (error) {
+      tab.status = 'error';
+      tab.error = error instanceof Error ? error.message : String(error);
+      logger.error(`FB Auto Reply: Tab ${tabIndex} exception`, {
+        tabId: tab.id,
+        error: tab.error,
+      });
+    }
+
+    renderFBTabs();
+    updateFBButtonStates();
+    updateFBProgress(completed, total);
+
+    // Wait before next tab
+    if (!fbReplyAbort && pendingTabs.indexOf(tab) < pendingTabs.length - 1) {
+      logger.debug('FB Auto Reply: Waiting before next tab', { delay });
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  fbReplyRunning = false;
+  updateFBButtonStates();
+
+  if (!fbReplyAbort) {
+    logger.info('FB Auto Reply: All tabs completed', { completed, total });
+    showFBStatus(`Auto reply completed. ${completed}/${total} successful.`, 'info');
+  }
+}
+
+function stopFBAutoReply(): void {
+  logger.warn('FB Auto Reply: Stop requested by user');
+  fbReplyAbort = true;
+  showFBStatus('Stopping...', 'warning');
+  updateFBButtonStates();
+}
+
+async function setupFBAutoReply(): Promise<void> {
+  const scanBtn = document.getElementById('fbScanTabsBtn') as HTMLButtonElement;
+  const startBtn = document.getElementById('fbStartReplyBtn') as HTMLButtonElement;
+  const stopBtn = document.getElementById('fbStopReplyBtn') as HTMLButtonElement;
+  const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
+  const delayEl = document.getElementById('fbReplyDelay') as HTMLInputElement;
+
+  // Load saved settings
+  const stored = await chrome.storage.local.get(['fbReplyMessage', 'fbReplyDelay']);
+  if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
+  if (stored.fbReplyDelay) delayEl.value = stored.fbReplyDelay;
+
+  // Save settings on change
+  messageEl.addEventListener('input', () => {
+    chrome.storage.local.set({ fbReplyMessage: messageEl.value });
+  });
+
+  delayEl.addEventListener('input', () => {
+    chrome.storage.local.set({ fbReplyDelay: delayEl.value });
+  });
+
+  scanBtn.addEventListener('click', scanFBTabs);
+  startBtn.addEventListener('click', startFBAutoReply);
+  stopBtn.addEventListener('click', stopFBAutoReply);
+
+  // Initial scan
+  scanFBTabs();
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   // Load settings first
@@ -721,6 +1057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupColumnSettings();
   setupSorting();
   await setupCSSCounter();
+  await setupFBAutoReply();
 
   // Apply loaded settings to UI
   updateColumnVisibilityUI();
