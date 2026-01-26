@@ -320,19 +320,29 @@ async function performFBReply(message: string): Promise<FBReplyResult> {
     input.click();
     await wait(300);
 
-    // Clear and insert text using execCommand (works better with contenteditable)
+    // Insert text at the end (preserving @mention tags that Facebook adds)
     if (input.getAttribute('contenteditable') === 'true') {
-      // Select all and delete
-      document.execCommand('selectAll', false);
-      document.execCommand('delete', false);
+      // Move cursor to end of existing content (after @mention if present)
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      range.collapse(false); // false = collapse to end
+      selection?.removeAllRanges();
+      selection?.addRange(range);
 
-      // Insert text using execCommand
-      document.execCommand('insertText', false, message);
+      // Check if there's existing content (like @mention), add space before our message
+      const existingText = input.textContent?.trim() || '';
+      const textToInsert = existingText ? ' ' + message : message;
 
-      logger.info('Text inserted via execCommand');
+      // Insert text at cursor position (end)
+      document.execCommand('insertText', false, textToInsert);
+
+      logger.info('Text inserted via execCommand', { existingText, textToInsert });
     } else {
-      // Regular input/textarea
-      (input as HTMLInputElement).value = message;
+      // Regular input/textarea - append to existing value
+      const inputEl = input as HTMLInputElement;
+      const existingValue = inputEl.value.trim();
+      inputEl.value = existingValue ? existingValue + ' ' + message : message;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -383,13 +393,9 @@ async function performFBReply(message: string): Promise<FBReplyResult> {
         text: submitBtn.textContent?.substring(0, 50),
       });
 
-      // Click the submit button
+      // Click the submit button once
       submitBtn.click();
       logger.info('Clicked submit button');
-      await wait(500);
-
-      // Try clicking again if needed (sometimes FB needs double click)
-      submitBtn.click();
     } else {
       // Fallback: try pressing Enter with Ctrl (some FB versions need this)
       logger.warn('No submit button found, trying keyboard submit');
