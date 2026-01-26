@@ -19,15 +19,11 @@ export interface LogState {
   maxLogs: number;
 }
 
-// CSS Counter result from content script
+// HTML Counter result from content script
 export interface CSSSearchResult {
   query: string;
-  elements: number;
   classes: number;
-  ids: number;
-  inlineStyles: number;
-  stylesheetRules: number;
-  computedMatches: number;
+  textMatches: number;
 }
 
 // Message types for communication

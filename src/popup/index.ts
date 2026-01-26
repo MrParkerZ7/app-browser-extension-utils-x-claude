@@ -468,17 +468,12 @@ function updateCSSCounterUI(result: CSSSearchResult): void {
   counterGrid.innerHTML = '';
 
   const metrics: { key: keyof CSSSearchResult; label: string }[] = [
-    { key: 'elements', label: 'Elements Matched' },
-    { key: 'classes', label: 'Classes Found' },
-    { key: 'ids', label: 'IDs Found' },
-    { key: 'inlineStyles', label: 'Inline Styles' },
-    { key: 'stylesheetRules', label: 'Stylesheet Rules' },
-    { key: 'computedMatches', label: 'Computed Matches' },
+    { key: 'classes', label: 'Class Matches' },
+    { key: 'textMatches', label: 'Text Matches' },
   ];
 
   metrics.forEach(({ key, label }) => {
     const value = result[key];
-    if (typeof value === 'number' && value === 0) return;
     if (key === 'query') return;
 
     const card = document.createElement('div');

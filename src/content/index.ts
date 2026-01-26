@@ -17,96 +17,47 @@ function sendMessageToBackground(message: { type: string; payload?: unknown }) {
   });
 }
 
-// CSS Search functionality
+// HTML Search functionality - counts exact class matches and text matches
 function searchCSS(query: string): CSSSearchResult {
   const result: CSSSearchResult = {
     query,
-    elements: 0,
     classes: 0,
-    ids: 0,
-    inlineStyles: 0,
-    stylesheetRules: 0,
-    computedMatches: 0,
+    textMatches: 0,
   };
 
   if (!query.trim()) return result;
 
-  const searchTerm = query.trim().toLowerCase();
+  const searchTerm = query.trim();
+  const searchClasses = searchTerm.split(/\s+/);
 
-  // Count elements matching as selector (try querySelector)
-  try {
-    const elements = document.querySelectorAll(query);
-    result.elements = elements.length;
-  } catch {
-    // Invalid selector, ignore
-  }
-
-  // Count classes containing the search term
   const allElements = document.querySelectorAll('*');
-  const classSet = new Set<string>();
-  const idSet = new Set<string>();
 
   allElements.forEach(el => {
-    // Check classes
-    el.classList.forEach(cls => {
-      if (cls.toLowerCase().includes(searchTerm)) {
-        classSet.add(cls);
+    // Count elements where className exactly matches OR all searched classes are present
+    if (searchClasses.length > 1) {
+      // Multiple classes: check if element has all of them
+      const hasAll = searchClasses.every(cls => el.classList.contains(cls));
+      if (hasAll) {
+        result.classes++;
       }
-    });
-
-    // Check ID
-    if (el.id && el.id.toLowerCase().includes(searchTerm)) {
-      idSet.add(el.id);
+    } else {
+      // Single class: exact match
+      if (el.classList.contains(searchTerm)) {
+        result.classes++;
+      }
     }
 
-    // Check inline styles
-    const style = el.getAttribute('style');
-    if (style && style.toLowerCase().includes(searchTerm)) {
-      result.inlineStyles++;
+    // Count elements with exact text match (direct text only, not children)
+    const directText = Array.from(el.childNodes)
+      .filter(node => node.nodeType === Node.TEXT_NODE)
+      .map(node => node.textContent || '')
+      .join('')
+      .trim();
+
+    if (directText === searchTerm) {
+      result.textMatches++;
     }
   });
-
-  result.classes = classSet.size;
-  result.ids = idSet.size;
-
-  // Count stylesheet rules containing the search term
-  try {
-    const sheets = Array.from(document.styleSheets);
-    for (const sheet of sheets) {
-      try {
-        const rules = sheet.cssRules || sheet.rules;
-        if (rules) {
-          const ruleList = Array.from(rules);
-          for (const rule of ruleList) {
-            if (rule.cssText.toLowerCase().includes(searchTerm)) {
-              result.stylesheetRules++;
-            }
-          }
-        }
-      } catch {
-        // Cross-origin stylesheet, skip
-      }
-    }
-  } catch {
-    // Error accessing stylesheets
-  }
-
-  // Count elements with computed styles matching (for property names)
-  try {
-    const sampleElements = document.querySelectorAll('body, div, span, p, a, h1, h2, h3');
-    sampleElements.forEach(el => {
-      const computed = getComputedStyle(el);
-      for (let i = 0; i < computed.length; i++) {
-        const prop = computed[i];
-        if (prop.toLowerCase().includes(searchTerm)) {
-          result.computedMatches++;
-          break;
-        }
-      }
-    });
-  } catch {
-    // Error with computed styles
-  }
 
   return result;
 }
