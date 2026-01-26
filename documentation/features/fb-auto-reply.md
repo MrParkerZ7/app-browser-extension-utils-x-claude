@@ -179,11 +179,11 @@ const submitSelectors = [
 │  │ Found 3 FB comment tab(s) ready to reply.       (status) │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
-│  Facebook Tabs Found: 3                                        │
+│  Facebook Tabs Found: 3 (Selected: 2)   [Select All][Deselect] │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ #1  Facebook Post Comment...            [Pending]        │ │
-│  │ #2  Facebook Post Reply...              [Done]           │ │
-│  │ #3  Facebook Comment Thread...          [Error]          │ │
+│  │ [✓] #1  Facebook Post Comment...            [Pending]    │ │
+│  │ [ ] #2  Facebook Post Reply...              [Pending]    │ │
+│  │ [✓] #3  Facebook Comment Thread...          [Pending]    │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
 │  [Scan Tabs]  [Start Auto Reply]  [Stop]                       │
@@ -203,6 +203,7 @@ interface FBTab {
   url: string;     // Full URL
   status: 'skip' | 'pending' | 'processing' | 'done' | 'error';
   error?: string;  // Error message if status is 'error'
+  selected: boolean; // Whether tab is selected for processing
 }
 ```
 
@@ -224,13 +225,14 @@ interface FBTab {
 **scanFBTabs()**
 - Queries all browser tabs with `chrome.tabs.query({})`
 - Filters for Facebook comment URLs
-- Populates `fbTabs[]` array with status `pending`
+- Populates `fbTabs[]` array with status `pending` and `selected: true`
+- All tabs are selected by default
 - Updates UI with found tabs
 
 **startFBAutoReply()**
 - Validates message is not empty
 - Sets `fbReplyRunning = true`
-- For each pending tab:
+- For each **selected** pending tab:
   1. Switch to tab (`chrome.tabs.update`)
   2. Wait 1500ms for page to be ready
   3. Inject content script (with 3 retry attempts)
@@ -244,11 +246,26 @@ interface FBTab {
 - Sets `fbReplyAbort = true`
 - Current tab finishes processing, then loop stops
 
+**selectAllFBTabs()**
+- Sets `selected: true` for all tabs with `pending` status
+- Updates UI and button states
+
+**deselectAllFBTabs()**
+- Sets `selected: false` for all tabs with `pending` status
+- Updates UI and button states
+
 **updateFBButtonStates()**
 - Dynamically enables/disables buttons based on state:
   - Scan: disabled when running
-  - Start: disabled when running OR no pending tabs
+  - Start: disabled when running OR no **selected** pending tabs
   - Stop: enabled only when running
+  - Select All / Deselect All: disabled when running or no tabs
+
+**renderFBTabs()**
+- Renders tab list with checkboxes for selection
+- Shows selected count in header
+- Checkboxes disabled for non-pending tabs or when running
+- Unselected tabs appear dimmed
 
 ## Storage
 
@@ -335,7 +352,9 @@ When no submit button is found after typing:
 
 | Scenario | Steps |
 |----------|-------|
-| Reply to multiple comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs", 5. Click "Start Auto Reply" |
+| Reply to all comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs" (all selected by default), 5. Click "Start Auto Reply" |
+| Reply to specific tabs | 1. Click "Scan Tabs", 2. Uncheck tabs you want to skip, 3. Click "Start Auto Reply" |
+| Select/deselect all | Use "Select All" or "Deselect All" buttons to quickly toggle all tabs |
 | Stop mid-process | Click "Stop" button; current tab finishes, then stops |
 | Retry failed tabs | Click "Scan Tabs" to refresh, then "Start Auto Reply" |
 | Adjust timing | Change "Delay between replies" value (500-10000ms) |
