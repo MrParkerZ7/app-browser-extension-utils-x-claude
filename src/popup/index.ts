@@ -723,6 +723,7 @@ interface FBTab {
   url: string;
   status: 'skip' | 'pending' | 'processing' | 'done' | 'error';
   error?: string;
+  selected: boolean;
 }
 
 let fbTabs: FBTab[] = [];
@@ -738,18 +739,25 @@ function updateFBButtonStates(): void {
   const startBtn = document.getElementById('fbStartReplyBtn') as HTMLButtonElement;
   const stopBtn = document.getElementById('fbStopReplyBtn') as HTMLButtonElement;
   const scanBtn = document.getElementById('fbScanTabsBtn') as HTMLButtonElement;
+  const selectAllBtn = document.getElementById('fbSelectAllBtn') as HTMLButtonElement;
+  const deselectAllBtn = document.getElementById('fbDeselectAllBtn') as HTMLButtonElement;
 
-  const hasPendingTabs = fbTabs.some(t => t.status === 'pending');
+  const hasSelectedPendingTabs = fbTabs.some(t => t.status === 'pending' && t.selected);
   const hasProcessingTabs = fbTabs.some(t => t.status === 'processing');
+  const hasTabs = fbTabs.length > 0;
 
   // Scan button: disabled when running
   scanBtn.disabled = fbReplyRunning;
 
-  // Start button: enabled when not running AND has pending tabs
-  startBtn.disabled = fbReplyRunning || !hasPendingTabs;
+  // Start button: enabled when not running AND has selected pending tabs
+  startBtn.disabled = fbReplyRunning || !hasSelectedPendingTabs;
 
   // Stop button: enabled only when running
   stopBtn.disabled = !fbReplyRunning;
+
+  // Select/Deselect buttons: disabled when running or no tabs
+  selectAllBtn.disabled = fbReplyRunning || !hasTabs;
+  deselectAllBtn.disabled = fbReplyRunning || !hasTabs;
 
   // Update button text to show current state
   if (fbReplyRunning) {
@@ -789,8 +797,11 @@ function updateFBProgress(completed: number, total: number): void {
 function renderFBTabs(): void {
   const listEl = document.getElementById('fbTabsList') as HTMLElement;
   const countEl = document.getElementById('fbTabCount') as HTMLElement;
+  const selectedCountEl = document.getElementById('fbSelectedCount') as HTMLElement;
 
+  const selectedCount = fbTabs.filter(t => t.selected && t.status === 'pending').length;
   countEl.textContent = String(fbTabs.length);
+  selectedCountEl.textContent = String(selectedCount);
   listEl.innerHTML = '';
 
   fbTabs.forEach((tab, index) => {
@@ -800,6 +811,7 @@ function renderFBTabs(): void {
     if (tab.status === 'done') div.classList.add('completed');
     if (tab.status === 'processing') div.classList.add('current');
     if (tab.status === 'error') div.classList.add('failed');
+    if (!tab.selected) div.classList.add('unselected');
 
     const statusLabels: Record<string, string> = {
       skip: 'Skip',
@@ -809,12 +821,30 @@ function renderFBTabs(): void {
       error: 'Error',
     };
 
+    const isDisabled = tab.status !== 'pending' || fbReplyRunning;
+    const checkboxHtml = `<input type="checkbox" class="fb-tab-checkbox" data-tab-id="${tab.id}" ${tab.selected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} />`;
+
     div.innerHTML = `
+      ${checkboxHtml}
       <span class="fb-tab-index">#${index + 1}</span>
       <span class="fb-tab-title" title="${tab.url}">${tab.title || 'Facebook Tab'}</span>
       <span class="fb-tab-status ${tab.status}">${statusLabels[tab.status]}</span>
     `;
     listEl.appendChild(div);
+  });
+
+  // Add checkbox event listeners
+  listEl.querySelectorAll('.fb-tab-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      const tabId = parseInt(target.dataset.tabId || '0', 10);
+      const tab = fbTabs.find(t => t.id === tabId);
+      if (tab) {
+        tab.selected = target.checked;
+        renderFBTabs();
+        updateFBButtonStates();
+      }
+    });
   });
 }
 
@@ -833,6 +863,7 @@ async function scanFBTabs(): Promise<void> {
       title: tab.title || 'Facebook',
       url: tab.url || '',
       status: 'pending',
+      selected: true,
     });
   });
 
@@ -870,28 +901,30 @@ async function startFBAutoReply(): Promise<void> {
   fbReplyRunning = true;
   fbReplyAbort = false;
   updateFBButtonStates();
+  renderFBTabs(); // Update checkboxes to disabled state
 
-  const pendingTabs = fbTabs.filter(t => t.status === 'pending');
+  const selectedPendingTabs = fbTabs.filter(t => t.status === 'pending' && t.selected);
   let completed = 0;
-  const total = pendingTabs.length;
+  const total = selectedPendingTabs.length;
 
   logger.info('FB Auto Reply: Starting auto reply', {
     message,
     delay,
     totalTabs: total,
+    selectedTabs: selectedPendingTabs.length,
   });
 
   updateFBProgress(0, total);
   showFBStatus('Auto reply started...', 'info');
 
-  for (const tab of pendingTabs) {
+  for (const tab of selectedPendingTabs) {
     if (fbReplyAbort) {
       logger.warn('FB Auto Reply: Stopped by user', { completed, total });
       showFBStatus('Auto reply stopped by user.', 'warning');
       break;
     }
 
-    const tabIndex = pendingTabs.indexOf(tab) + 1;
+    const tabIndex = selectedPendingTabs.indexOf(tab) + 1;
     logger.info(`FB Auto Reply: Processing tab ${tabIndex}/${total}`, {
       tabId: tab.id,
       title: tab.title,
@@ -997,7 +1030,7 @@ async function startFBAutoReply(): Promise<void> {
     updateFBProgress(completed, total);
 
     // Wait before next tab
-    if (!fbReplyAbort && pendingTabs.indexOf(tab) < pendingTabs.length - 1) {
+    if (!fbReplyAbort && selectedPendingTabs.indexOf(tab) < selectedPendingTabs.length - 1) {
       logger.debug('FB Auto Reply: Waiting before next tab', { delay });
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -1019,10 +1052,32 @@ function stopFBAutoReply(): void {
   updateFBButtonStates();
 }
 
+function selectAllFBTabs(): void {
+  fbTabs.forEach(tab => {
+    if (tab.status === 'pending') {
+      tab.selected = true;
+    }
+  });
+  renderFBTabs();
+  updateFBButtonStates();
+}
+
+function deselectAllFBTabs(): void {
+  fbTabs.forEach(tab => {
+    if (tab.status === 'pending') {
+      tab.selected = false;
+    }
+  });
+  renderFBTabs();
+  updateFBButtonStates();
+}
+
 async function setupFBAutoReply(): Promise<void> {
   const scanBtn = document.getElementById('fbScanTabsBtn') as HTMLButtonElement;
   const startBtn = document.getElementById('fbStartReplyBtn') as HTMLButtonElement;
   const stopBtn = document.getElementById('fbStopReplyBtn') as HTMLButtonElement;
+  const selectAllBtn = document.getElementById('fbSelectAllBtn') as HTMLButtonElement;
+  const deselectAllBtn = document.getElementById('fbDeselectAllBtn') as HTMLButtonElement;
   const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
   const delayEl = document.getElementById('fbReplyDelay') as HTMLInputElement;
 
@@ -1043,6 +1098,8 @@ async function setupFBAutoReply(): Promise<void> {
   scanBtn.addEventListener('click', scanFBTabs);
   startBtn.addEventListener('click', startFBAutoReply);
   stopBtn.addEventListener('click', stopFBAutoReply);
+  selectAllBtn.addEventListener('click', selectAllFBTabs);
+  deselectAllBtn.addEventListener('click', deselectAllFBTabs);
 
   // Initial scan
   scanFBTabs();

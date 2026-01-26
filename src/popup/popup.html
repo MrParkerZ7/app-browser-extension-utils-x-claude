@@ -875,6 +875,40 @@
       color: #ff6b6b;
     }
 
+    .fb-tabs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .fb-tabs-select-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-small {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .fb-tab-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #64ffda;
+    }
+
+    .fb-tab-checkbox:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .fb-tab-item.unselected {
+      opacity: 0.6;
+    }
+
     .fb-reply-actions {
       display: flex;
       gap: 8px;
@@ -1054,7 +1088,13 @@
         <div class="fb-reply-status" id="fbReplyStatus"></div>
 
         <div class="fb-reply-tabs" id="fbReplyTabs">
-          <div class="fb-reply-label">Facebook Tabs Found: <span id="fbTabCount">0</span></div>
+          <div class="fb-tabs-header">
+            <div class="fb-reply-label">Facebook Tabs Found: <span id="fbTabCount">0</span> (Selected: <span id="fbSelectedCount">0</span>)</div>
+            <div class="fb-tabs-select-actions">
+              <button class="btn btn-small" id="fbSelectAllBtn">Select All</button>
+              <button class="btn btn-small" id="fbDeselectAllBtn">Deselect All</button>
+            </div>
+          </div>
           <div class="fb-tabs-list" id="fbTabsList"></div>
         </div>
 
