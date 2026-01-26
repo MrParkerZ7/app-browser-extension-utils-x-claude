@@ -765,6 +765,42 @@
       border-color: #64ffda;
     }
 
+    .fb-action-checkboxes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .fb-action-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #e0e0e0;
+    }
+
+    .fb-action-checkbox input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #64ffda;
+    }
+
+    .fb-action-checkbox input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .fb-action-checkbox span {
+      user-select: none;
+    }
+
+    .fb-reply-settings.hidden {
+      display: none;
+    }
+
     .fb-reply-status {
       padding: 10px 12px;
       border-radius: 4px;
@@ -1068,9 +1104,23 @@
         <div class="fb-reply-header">
           <h2>FB Auto Reply</h2>
         </div>
-        <p class="fb-reply-desc">Auto reply to Facebook comment tabs (URLs with comment_id).</p>
+        <p class="fb-reply-desc">Perform actions on Facebook comment tabs (URLs with comment_id).</p>
 
         <div class="fb-reply-settings">
+          <label class="fb-reply-label">Actions to perform:</label>
+          <div class="fb-action-checkboxes">
+            <label class="fb-action-checkbox">
+              <input type="checkbox" id="fbActionReply" checked />
+              <span>Reply to comment</span>
+            </label>
+            <label class="fb-action-checkbox">
+              <input type="checkbox" id="fbActionClose" checked />
+              <span>Close tab</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="fb-reply-settings" id="fbMessageSettings">
           <label class="fb-reply-label">Reply Message:</label>
           <textarea
             id="fbReplyMessage"
@@ -1100,7 +1150,7 @@
 
         <div class="fb-reply-actions">
           <button class="btn btn-primary" id="fbScanTabsBtn">Scan Tabs</button>
-          <button class="btn btn-primary" id="fbStartReplyBtn" disabled>Start Auto Reply</button>
+          <button class="btn btn-primary" id="fbStartReplyBtn" disabled>Start</button>
           <button class="btn btn-danger" id="fbStopReplyBtn" disabled>Stop</button>
         </div>
 
