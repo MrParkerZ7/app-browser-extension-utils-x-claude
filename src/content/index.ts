@@ -75,7 +75,8 @@ function searchCSS(query: string): CSSSearchResult {
 interface CommentIds {
   commentId: string | null;
   replyCommentId: string | null;
-  targetId: string | null; // The ID we should use to find the target (prefers reply_comment_id)
+  targetId: string | null; // The ID we should use to find the target
+  isReplyTarget: boolean;  // Whether we're targeting a reply (reply_comment_id present)
 }
 
 function getCommentIdsFromUrl(): CommentIds {
@@ -88,60 +89,86 @@ function getCommentIdsFromUrl(): CommentIds {
     replyCommentId,
     // Target the most specific ID (reply_comment_id if present, otherwise comment_id)
     targetId: replyCommentId || commentId,
+    // Track whether we're targeting a reply or the main comment
+    isReplyTarget: replyCommentId !== null,
   };
 }
 
 // Helper to find the comment element by comment_id
-function findCommentById(targetId: string, parentCommentId?: string | null): HTMLElement | null {
-  logger.info('Searching for comment with ID', { targetId, parentCommentId });
+// isReplyTarget: true if we're looking for a reply_comment_id, false if looking for comment_id
+function findCommentById(targetId: string, isReplyTarget: boolean): HTMLElement | null {
+  logger.info('Searching for comment with ID', { targetId, isReplyTarget });
 
-  // If we have both IDs, we might need to find the reply within a comment thread
   // Facebook stores comment IDs in various places - look for links/elements containing the ID
+  // We need to be precise about which parameter we're matching
 
-  // Method 1: Find links that contain the target ID in href (check both parameter names)
   const allLinks = document.querySelectorAll('a[href*="comment_id"]');
-  const matchingContainers: HTMLElement[] = [];
+  const matchingContainers: { container: HTMLElement; isExactMatch: boolean; depth: number }[] = [];
 
   for (const link of Array.from(allLinks)) {
     const href = link.getAttribute('href') || '';
-    // Search for the ID value regardless of parameter name (comment_id= or reply_comment_id=)
-    // The ID might appear as comment_id=XXX or reply_comment_id=XXX
-    if (href.includes(`=${targetId}`) || href.includes(`/${targetId}`)) {
-      // Found a link with this comment ID - find its parent comment container
+
+    // Check for exact parameter match based on what we're looking for
+    let isExactMatch = false;
+
+    if (isReplyTarget) {
+      // Looking for reply_comment_id - must match reply_comment_id=targetId
+      isExactMatch = href.includes(`reply_comment_id=${targetId}`);
+    } else {
+      // Looking for comment_id (not reply) - must match comment_id=targetId
+      // But NOT reply_comment_id=targetId (that would be a different comment)
+      isExactMatch = href.includes(`comment_id=${targetId}`) && !href.includes(`reply_comment_id=${targetId}`);
+    }
+
+    if (isExactMatch || href.includes(`=${targetId}`)) {
       const commentContainer = link.closest('[role="article"]') as HTMLElement;
-      if (commentContainer && !matchingContainers.includes(commentContainer)) {
-        matchingContainers.push(commentContainer);
-        logger.info('Found potential comment by link href', { href: href.substring(0, 100) });
+      if (commentContainer) {
+        // Calculate depth
+        let depth = 0;
+        let el: HTMLElement | null = commentContainer;
+        while (el) { depth++; el = el.parentElement; }
+
+        // Check if we already have this container
+        const existing = matchingContainers.find(m => m.container === commentContainer);
+        if (!existing) {
+          matchingContainers.push({ container: commentContainer, isExactMatch, depth });
+          logger.info('Found potential comment', {
+            href: href.substring(0, 100),
+            isExactMatch,
+            depth,
+          });
+        } else if (isExactMatch && !existing.isExactMatch) {
+          // Upgrade to exact match
+          existing.isExactMatch = true;
+        }
       }
     }
   }
 
-  // If we found matches, return the most specific one (smallest/deepest in DOM)
   if (matchingContainers.length > 0) {
-    // Sort by depth (deepest first) - a nested reply will be deeper in the DOM
-    matchingContainers.sort((a, b) => {
-      let depthA = 0, depthB = 0;
-      let el: HTMLElement | null = a;
-      while (el) { depthA++; el = el.parentElement; }
-      el = b;
-      while (el) { depthB++; el = el.parentElement; }
-      return depthB - depthA; // Deepest first
-    });
+    // First, prefer exact matches
+    const exactMatches = matchingContainers.filter(m => m.isExactMatch);
 
-    // If we have a parent comment ID, prefer a container that's inside the parent
-    if (parentCommentId) {
-      for (const container of matchingContainers) {
-        // Check if this container is nested under a parent with the parentCommentId
-        const parentArticle = container.parentElement?.closest('[role="article"]') as HTMLElement;
-        if (parentArticle && parentArticle.innerHTML.includes(parentCommentId)) {
-          logger.info('Found nested reply within parent comment');
-          return container;
-        }
+    if (exactMatches.length > 0) {
+      if (isReplyTarget) {
+        // For replies, prefer the deepest (most nested) exact match
+        exactMatches.sort((a, b) => b.depth - a.depth);
+      } else {
+        // For main comments, prefer the shallowest exact match (avoid nested replies)
+        exactMatches.sort((a, b) => a.depth - b.depth);
       }
+      logger.info('Found exact match for comment', { isReplyTarget, depth: exactMatches[0].depth });
+      return exactMatches[0].container;
     }
 
-    logger.info('Found comment by link href', { count: matchingContainers.length });
-    return matchingContainers[0];
+    // Fallback to non-exact matches with same depth logic
+    if (isReplyTarget) {
+      matchingContainers.sort((a, b) => b.depth - a.depth);
+    } else {
+      matchingContainers.sort((a, b) => a.depth - b.depth);
+    }
+    logger.info('Found comment by link href (non-exact)', { count: matchingContainers.length });
+    return matchingContainers[0].container;
   }
 
   // Method 2: Look for data attributes containing the ID
@@ -156,33 +183,31 @@ function findCommentById(targetId: string, parentCommentId?: string | null): HTM
 
   // Method 3: Search in aria-describedby or other attributes
   const allArticles = document.querySelectorAll('[role="article"]');
+  const articleMatches: { article: HTMLElement; depth: number }[] = [];
+
   for (const article of Array.from(allArticles)) {
-    const html = article.innerHTML;
-    // Check if this article contains a reference to our target ID
-    if (html.includes(targetId)) {
-      // Verify this is the actual comment, not just a reference
-      const links = article.querySelectorAll('a[href]');
-      for (const link of Array.from(links)) {
-        const href = link.getAttribute('href') || '';
-        if (href.includes(targetId)) {
-          logger.info('Found comment by innerHTML search');
-          return article as HTMLElement;
-        }
+    const links = article.querySelectorAll('a[href]');
+    for (const link of Array.from(links)) {
+      const href = link.getAttribute('href') || '';
+      if (href.includes(`comment_id=${targetId}`) || href.includes(`reply_comment_id=${targetId}`)) {
+        let depth = 0;
+        let el: Element | null = article;
+        while (el) { depth++; el = el.parentElement; }
+        articleMatches.push({ article: article as HTMLElement, depth });
+        break;
       }
     }
   }
 
-  // Method 4: Facebook sometimes uses the comment ID in the URL of timestamp links
-  const timeLinks = document.querySelectorAll('a[href*="permalink"], a[href*="comment"]');
-  for (const link of Array.from(timeLinks)) {
-    const href = link.getAttribute('href') || '';
-    if (href.includes(targetId)) {
-      const container = link.closest('[role="article"]') as HTMLElement;
-      if (container) {
-        logger.info('Found comment via timestamp/permalink link');
-        return container;
-      }
+  if (articleMatches.length > 0) {
+    // Sort by depth based on target type
+    if (isReplyTarget) {
+      articleMatches.sort((a, b) => b.depth - a.depth);
+    } else {
+      articleMatches.sort((a, b) => a.depth - b.depth);
     }
+    logger.info('Found comment by article search');
+    return articleMatches[0].article;
   }
 
   logger.warn('Could not find comment element by ID');
@@ -280,15 +305,14 @@ async function performFBReply(message: string, steps: FBReplySteps): Promise<FBR
     await wait(2000);
 
     // Get both comment_id and reply_comment_id from URL
-    const { commentId, replyCommentId, targetId } = getCommentIdsFromUrl();
-    logger.info('Comment IDs from URL', { commentId, replyCommentId, targetId });
+    const { commentId, replyCommentId, targetId, isReplyTarget } = getCommentIdsFromUrl();
+    logger.info('Comment IDs from URL', { commentId, replyCommentId, targetId, isReplyTarget });
 
     // Find the specific comment element by ID
-    // If we have reply_comment_id, we want to find that specific reply within the comment thread
+    // isReplyTarget tells us whether we're targeting a reply (reply_comment_id in URL) or main comment (only comment_id)
     let targetComment: HTMLElement | null = null;
     if (targetId) {
-      // Pass commentId as parent context when we're looking for a reply
-      targetComment = findCommentById(targetId, replyCommentId ? commentId : null);
+      targetComment = findCommentById(targetId, isReplyTarget);
     }
 
     if (targetComment) {
