@@ -32,6 +32,34 @@ export interface FBReplyResult {
   error?: string;
 }
 
+export type FBTabStatus = 'pending' | 'processing' | 'done' | 'error';
+
+export interface FBTab {
+  id: number;
+  index: number;
+  title: string;
+  url: string;
+  status: FBTabStatus;
+  error?: string;
+  selected: boolean;
+}
+
+export interface FBAutoReplyConfig {
+  message: string;
+  delayMin: number;
+  delayMax: number;
+  doReply: boolean;
+  doClose: boolean;
+}
+
+export interface FBAutoReplyState {
+  running: boolean;
+  tabs: FBTab[];
+  completed: number;
+  total: number;
+  currentTabId?: number;
+}
+
 // Message types for communication
 export type MessageType =
   | { type: 'LOG_ENTRY'; payload: Omit<LogEntry, 'id'> }
@@ -42,7 +70,15 @@ export type MessageType =
   | { type: 'CSS_SEARCH'; payload: { query: string } }
   | { type: 'CSS_SEARCH_RESULT'; payload: CSSSearchResult }
   | { type: 'FB_AUTO_REPLY'; payload: { message: string } }
-  | { type: 'FB_AUTO_REPLY_RESULT'; payload: FBReplyResult };
+  | { type: 'FB_AUTO_REPLY_RESULT'; payload: FBReplyResult }
+  // FB Auto Reply background service messages
+  | { type: 'FB_SCAN_TABS'; payload?: undefined }
+  | { type: 'FB_START_AUTO_REPLY'; payload: FBAutoReplyConfig }
+  | { type: 'FB_STOP_AUTO_REPLY'; payload?: undefined }
+  | { type: 'FB_GET_STATE'; payload?: undefined }
+  | { type: 'FB_STATE_UPDATE'; payload: FBAutoReplyState }
+  | { type: 'FB_SELECT_TAB'; payload: { tabId: number; selected: boolean } }
+  | { type: 'FB_SELECT_ALL_TABS'; payload: { selected: boolean } };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

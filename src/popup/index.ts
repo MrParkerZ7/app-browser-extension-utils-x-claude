@@ -1,5 +1,5 @@
 // Popup script
-import { LogEntry, LogLevel, LogSource, CSSSearchResult } from '../shared/types';
+import { LogEntry, LogLevel, LogSource, CSSSearchResult, FBTab, FBAutoReplyState, FBAutoReplyConfig } from '../shared/types';
 import { createLogger, getLogs, clearLogs } from '../shared/logger';
 
 const logger = createLogger('popup');
@@ -713,32 +713,22 @@ async function setupCSSCounter(): Promise<void> {
 }
 
 // ============================================
-// FB Auto Reply Feature
+// FB Auto Reply Feature (communicates with background service)
 // ============================================
-
-interface FBTab {
-  id: number;
-  index: number;
-  title: string;
-  url: string;
-  status: 'skip' | 'pending' | 'processing' | 'done' | 'error';
-  error?: string;
-  selected: boolean;
-}
 
 interface FBActions {
   reply: boolean;
   close: boolean;
 }
 
-let fbTabs: FBTab[] = [];
-let fbReplyRunning = false;
-let fbReplyAbort = false;
+// Local UI state
+let fbState: FBAutoReplyState = {
+  running: false,
+  tabs: [],
+  completed: 0,
+  total: 0,
+};
 let fbActions: FBActions = { reply: true, close: true };
-
-function isFacebookCommentUrl(url: string): boolean {
-  return url.includes('facebook.com') && url.includes('comment_id');
-}
 
 function getActionLabel(): string {
   if (fbActions.reply && fbActions.close) return 'Reply & Close';
@@ -765,7 +755,6 @@ function updateFBActionUI(): void {
   updateFBButtonStates();
 }
 
-// Centralized function to update button states based on current status
 function updateFBButtonStates(): void {
   const startBtn = document.getElementById('fbStartReplyBtn') as HTMLButtonElement;
   const stopBtn = document.getElementById('fbStopReplyBtn') as HTMLButtonElement;
@@ -773,25 +762,25 @@ function updateFBButtonStates(): void {
   const selectAllBtn = document.getElementById('fbSelectAllBtn') as HTMLButtonElement;
   const deselectAllBtn = document.getElementById('fbDeselectAllBtn') as HTMLButtonElement;
 
-  const hasSelectedPendingTabs = fbTabs.some(t => t.status === 'pending' && t.selected);
-  const hasProcessingTabs = fbTabs.some(t => t.status === 'processing');
-  const hasTabs = fbTabs.length > 0;
+  const hasSelectedPendingTabs = fbState.tabs.some(t => t.status === 'pending' && t.selected);
+  const hasProcessingTabs = fbState.tabs.some(t => t.status === 'processing');
+  const hasTabs = fbState.tabs.length > 0;
 
   // Scan button: disabled when running
-  scanBtn.disabled = fbReplyRunning;
+  scanBtn.disabled = fbState.running;
 
   // Start button: enabled when not running AND has selected pending tabs
-  startBtn.disabled = fbReplyRunning || !hasSelectedPendingTabs;
+  startBtn.disabled = fbState.running || !hasSelectedPendingTabs;
 
   // Stop button: only visible when running
-  stopBtn.style.display = fbReplyRunning ? 'inline-block' : 'none';
+  stopBtn.style.display = fbState.running ? 'inline-block' : 'none';
 
   // Select/Deselect buttons: disabled when running or no tabs
-  selectAllBtn.disabled = fbReplyRunning || !hasTabs;
-  deselectAllBtn.disabled = fbReplyRunning || !hasTabs;
+  selectAllBtn.disabled = fbState.running || !hasTabs;
+  deselectAllBtn.disabled = fbState.running || !hasTabs;
 
   // Update button text to show current state and action
-  if (fbReplyRunning) {
+  if (fbState.running) {
     startBtn.textContent = hasProcessingTabs ? 'Running...' : 'Start';
   } else {
     startBtn.textContent = getActionLabel();
@@ -830,94 +819,83 @@ function renderFBTabs(): void {
   const countEl = document.getElementById('fbTabCount') as HTMLElement;
   const selectedCountEl = document.getElementById('fbSelectedCount') as HTMLElement;
 
-  const selectedCount = fbTabs.filter(t => t.selected && t.status === 'pending').length;
-  countEl.textContent = String(fbTabs.length);
+  const selectedCount = fbState.tabs.filter(t => t.selected && t.status === 'pending').length;
+  countEl.textContent = String(fbState.tabs.length);
   selectedCountEl.textContent = String(selectedCount);
   listEl.innerHTML = '';
 
-  fbTabs.forEach((tab, index) => {
+  fbState.tabs.forEach((tab, index) => {
     const div = document.createElement('div');
     div.className = `fb-tab-item ${tab.status}`;
-    if (tab.status === 'skip') div.classList.add('skipped');
     if (tab.status === 'done') div.classList.add('completed');
     if (tab.status === 'processing') div.classList.add('current');
     if (tab.status === 'error') div.classList.add('failed');
     if (!tab.selected) div.classList.add('unselected');
 
     const statusLabels: Record<string, string> = {
-      skip: 'Skip',
       pending: 'Pending',
       processing: 'Processing',
       done: 'Done',
       error: 'Error',
     };
 
-    const isDisabled = tab.status !== 'pending' || fbReplyRunning;
+    const isDisabled = tab.status !== 'pending' || fbState.running;
     const checkboxHtml = `<input type="checkbox" class="fb-tab-checkbox" data-tab-id="${tab.id}" ${tab.selected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} />`;
 
     div.innerHTML = `
       ${checkboxHtml}
       <span class="fb-tab-index">#${index + 1}</span>
       <span class="fb-tab-title" title="${tab.url}">${tab.title || 'Facebook Tab'}</span>
-      <span class="fb-tab-status ${tab.status}">${statusLabels[tab.status]}</span>
+      <span class="fb-tab-status ${tab.status}">${statusLabels[tab.status] || tab.status}</span>
     `;
     listEl.appendChild(div);
   });
 
-  // Add checkbox event listeners
+  // Add checkbox event listeners - send to background
   listEl.querySelectorAll('.fb-tab-checkbox').forEach(checkbox => {
     checkbox.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement;
       const tabId = parseInt(target.dataset.tabId || '0', 10);
-      const tab = fbTabs.find(t => t.id === tabId);
-      if (tab) {
-        tab.selected = target.checked;
-        renderFBTabs();
-        updateFBButtonStates();
-      }
+      chrome.runtime.sendMessage({
+        type: 'FB_SELECT_TAB',
+        payload: { tabId, selected: target.checked }
+      });
     });
   });
 }
 
-async function scanFBTabs(): Promise<void> {
-  logger.info('FB Auto Reply: Scanning for Facebook tabs');
-  hideFBStatus();
-  fbTabs = [];
-
-  const tabs = await chrome.tabs.query({});
-  const fbTabsFound = tabs.filter(t => t.url && isFacebookCommentUrl(t.url));
-
-  fbTabsFound.forEach((tab) => {
-    fbTabs.push({
-      id: tab.id!,
-      index: tab.index,
-      title: tab.title || 'Facebook',
-      url: tab.url || '',
-      status: 'pending',
-      selected: true,
-    });
-  });
-
-  logger.info('FB Auto Reply: Scan complete', {
-    totalTabs: fbTabs.length,
-    pendingTabs: fbTabs.filter(t => t.status === 'pending').length,
-  });
+// Apply state from background and update UI
+function applyFBState(state: FBAutoReplyState): void {
+  const wasRunning = fbState.running;
+  fbState = state;
 
   renderFBTabs();
   updateFBButtonStates();
+  updateFBProgress(fbState.completed, fbState.total);
 
-  if (fbTabs.length > 0) {
-    showFBStatus(`Found ${fbTabs.length} FB comment tab(s) ready to reply.`, 'info');
-  } else {
-    showFBStatus('No Facebook comment tabs found.', 'warning');
-    logger.warn('FB Auto Reply: No Facebook comment tabs found');
+  // Show status messages based on state changes
+  if (fbState.running && !wasRunning) {
+    showFBStatus('Running...', 'info');
+  } else if (!fbState.running && wasRunning) {
+    if (fbState.completed > 0) {
+      showFBStatus(`Completed. ${fbState.completed}/${fbState.total} successful.`, 'info');
+    }
   }
-
-  updateFBProgress(0, 0);
 }
 
-function getRandomDelay(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+async function scanFBTabs(): Promise<void> {
+  hideFBStatus();
+
+  const response = await chrome.runtime.sendMessage({ type: 'FB_SCAN_TABS' });
+  if (response?.success) {
+    // State will be updated via FB_STATE_UPDATE message
+    const tabs = response.data as FBTab[];
+    if (tabs.length > 0) {
+      showFBStatus(`Found ${tabs.length} FB comment tab(s) ready to reply.`, 'info');
+    } else {
+      showFBStatus('No Facebook comment tabs found.', 'warning');
+    }
+  }
 }
 
 async function startFBAutoReply(): Promise<void> {
@@ -934,213 +912,52 @@ async function startFBAutoReply(): Promise<void> {
   // Validate: at least one action must be selected
   if (!doReply && !doClose) {
     showFBStatus('Please select at least one action.', 'error');
-    logger.error('FB Auto Reply: No action selected');
     return;
   }
 
   // Only require message for reply action
   if (doReply && !message) {
     showFBStatus('Please enter a reply message.', 'error');
-    logger.error('FB Auto Reply: No message provided');
     return;
   }
 
-  fbReplyRunning = true;
-  fbReplyAbort = false;
-  updateFBButtonStates();
-  renderFBTabs(); // Update checkboxes to disabled state
-
-  const selectedPendingTabs = fbTabs.filter(t => t.status === 'pending' && t.selected);
-  let completed = 0;
-  const total = selectedPendingTabs.length;
-
-  const actionDesc = getActionLabel().toLowerCase();
-
-  logger.info(`FB Auto Reply: Starting ${actionDesc}`, {
+  const config: FBAutoReplyConfig = {
+    message,
+    delayMin,
+    delayMax,
     doReply,
     doClose,
-    message: doReply ? message : undefined,
-    delayRange: `${delayMin}-${delayMax}ms`,
-    totalTabs: total,
+  };
+
+  const response = await chrome.runtime.sendMessage({
+    type: 'FB_START_AUTO_REPLY',
+    payload: config
   });
 
-  updateFBProgress(0, total);
-  showFBStatus(`${actionDesc} started...`, 'info');
-
-  for (const tab of selectedPendingTabs) {
-    if (fbReplyAbort) {
-      logger.warn('FB Auto Reply: Stopped by user', { completed, total });
-      showFBStatus('Operation stopped by user.', 'warning');
-      break;
-    }
-
-    const tabIndex = selectedPendingTabs.indexOf(tab) + 1;
-    logger.info(`FB Auto Reply: Processing tab ${tabIndex}/${total}`, {
-      doReply,
-      doClose,
-      tabId: tab.id,
-      title: tab.title,
-      url: tab.url,
-    });
-
-    // Update status to processing
-    tab.status = 'processing';
-    renderFBTabs();
-    updateFBButtonStates();
-
-    try {
-      let actionSuccess = true;
-      let needsTabSwitch = doReply;
-      let scriptInjected = false;
-
-      // Switch to tab and inject script if needed for reply or react
-      if (needsTabSwitch) {
-        logger.debug('FB Auto Reply: Switching to tab', { tabId: tab.id });
-        await chrome.tabs.update(tab.id, { active: true });
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // Inject content script with retry
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: tab.id },
-              files: ['content/index.js'],
-            });
-            logger.debug('FB Auto Reply: Content script injected', { tabId: tab.id, attempt });
-            scriptInjected = true;
-            break;
-          } catch (injectError) {
-            const errMsg = injectError instanceof Error ? injectError.message : String(injectError);
-            if (errMsg.includes('Cannot access') || errMsg.includes('not be scripted')) {
-              logger.error('FB Auto Reply: Cannot inject script (restricted page)', { tabId: tab.id });
-              throw new Error('Cannot inject script on this page');
-            }
-            logger.debug('FB Auto Reply: Script injection attempt failed', { tabId: tab.id, attempt, error: errMsg });
-            if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-          }
-        }
-
-        // Wait for script to initialize
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Reply action
-      if (doReply && actionSuccess) {
-        let response = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, message, attempt });
-            response = await chrome.tabs.sendMessage(tab.id, {
-              type: 'FB_AUTO_REPLY',
-              payload: { message },
-            });
-            break;
-          } catch (sendError) {
-            const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
-            logger.warn('FB Auto Reply: Message send failed', { tabId: tab.id, attempt, error: errMsg });
-            if (attempt < 3) {
-              try {
-                await chrome.scripting.executeScript({
-                  target: { tabId: tab.id },
-                  files: ['content/index.js'],
-                });
-              } catch {
-                // Ignore injection errors on retry
-              }
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw sendError;
-            }
-          }
-        }
-
-        if (response?.success) {
-          logger.info(`FB Auto Reply: Tab ${tabIndex} reply successful`, { tabId: tab.id });
-        } else {
-          actionSuccess = false;
-          tab.status = 'error';
-          tab.error = response?.error || 'Unknown error';
-          logger.error(`FB Auto Reply: Tab ${tabIndex} reply failed`, {
-            tabId: tab.id,
-            error: tab.error,
-          });
-        }
-      }
-
-      // Close action (only if previous actions succeeded or not selected)
-      if (doClose && actionSuccess) {
-        if (doReply) {
-          // Wait a bit after actions before closing
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        logger.debug('FB Auto Reply: Closing tab', { tabId: tab.id });
-        await chrome.tabs.remove(tab.id);
-        logger.info(`FB Auto Reply: Tab ${tabIndex} closed`, { tabId: tab.id });
-      }
-
-      // Mark as done if all actions succeeded
-      if (actionSuccess) {
-        tab.status = 'done';
-        completed++;
-        logger.info(`FB Auto Reply: Tab ${tabIndex} completed successfully`, { tabId: tab.id });
-      }
-    } catch (error) {
-      tab.status = 'error';
-      tab.error = error instanceof Error ? error.message : String(error);
-      logger.error(`FB Auto Reply: Tab ${tabIndex} exception`, {
-        tabId: tab.id,
-        error: tab.error,
-      });
-    }
-
-    renderFBTabs();
-    updateFBButtonStates();
-    updateFBProgress(completed, total);
-
-    // Wait before next tab with random delay
-    if (!fbReplyAbort && selectedPendingTabs.indexOf(tab) < selectedPendingTabs.length - 1) {
-      const randomDelay = getRandomDelay(delayMin, delayMax);
-      logger.debug('FB Auto Reply: Waiting before next tab', { randomDelay, delayMin, delayMax });
-      await new Promise(resolve => setTimeout(resolve, randomDelay));
-    }
-  }
-
-  fbReplyRunning = false;
-  updateFBButtonStates();
-
-  if (!fbReplyAbort) {
-    logger.info(`FB Auto Reply: ${actionDesc} completed`, { completed, total });
-    showFBStatus(`${actionDesc} completed. ${completed}/${total} successful.`, 'info');
+  if (response?.success) {
+    showFBStatus('Starting...', 'info');
+  } else {
+    showFBStatus(response?.error || 'Failed to start', 'error');
   }
 }
 
-function stopFBAutoReply(): void {
-  logger.warn('FB Auto Reply: Stop requested by user');
-  fbReplyAbort = true;
+async function stopFBAutoReply(): Promise<void> {
   showFBStatus('Stopping...', 'warning');
-  updateFBButtonStates();
+  await chrome.runtime.sendMessage({ type: 'FB_STOP_AUTO_REPLY' });
 }
 
-function selectAllFBTabs(): void {
-  fbTabs.forEach(tab => {
-    if (tab.status === 'pending') {
-      tab.selected = true;
-    }
+async function selectAllFBTabs(): Promise<void> {
+  await chrome.runtime.sendMessage({
+    type: 'FB_SELECT_ALL_TABS',
+    payload: { selected: true }
   });
-  renderFBTabs();
-  updateFBButtonStates();
 }
 
-function deselectAllFBTabs(): void {
-  fbTabs.forEach(tab => {
-    if (tab.status === 'pending') {
-      tab.selected = false;
-    }
+async function deselectAllFBTabs(): Promise<void> {
+  await chrome.runtime.sendMessage({
+    type: 'FB_SELECT_ALL_TABS',
+    payload: { selected: false }
   });
-  renderFBTabs();
-  updateFBButtonStates();
 }
 
 async function setupFBAutoReply(): Promise<void> {
@@ -1165,7 +982,7 @@ async function setupFBAutoReply(): Promise<void> {
   if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;
   if (stored.fbActionClose !== undefined) closeCheckbox.checked = stored.fbActionClose;
 
-  // Update global state and UI
+  // Update local UI state
   fbActions.reply = replyCheckbox.checked;
   fbActions.close = closeCheckbox.checked;
   updateFBActionUI();
@@ -1199,8 +1016,23 @@ async function setupFBAutoReply(): Promise<void> {
   selectAllBtn.addEventListener('click', selectAllFBTabs);
   deselectAllBtn.addEventListener('click', deselectAllFBTabs);
 
-  // Initial scan
-  scanFBTabs();
+  // Listen for state updates from background
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'FB_STATE_UPDATE' && message.payload) {
+      applyFBState(message.payload as FBAutoReplyState);
+    }
+  });
+
+  // Get initial state from background
+  const stateResponse = await chrome.runtime.sendMessage({ type: 'FB_GET_STATE' });
+  if (stateResponse?.success && stateResponse.data) {
+    applyFBState(stateResponse.data as FBAutoReplyState);
+  }
+
+  // Initial scan if not already running
+  if (!fbState.running) {
+    scanFBTabs();
+  }
 }
 
 // Initialize
