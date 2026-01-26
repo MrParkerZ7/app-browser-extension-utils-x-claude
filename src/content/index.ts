@@ -4,10 +4,11 @@ import { CSSSearchResult, FBReplyResult } from '../shared/types';
 
 // Prevent multiple initializations when script is injected multiple times
 const windowWithFlag = window as unknown as { __contentScriptInitialized?: boolean };
-if (windowWithFlag.__contentScriptInitialized) {
-  throw new Error('Content script already initialized');
-}
+const alreadyInitialized = windowWithFlag.__contentScriptInitialized === true;
 windowWithFlag.__contentScriptInitialized = true;
+
+// Only run if not already initialized
+if (!alreadyInitialized) {
 
 const logger = createLogger('content');
 
@@ -511,5 +512,15 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+// Export for external use (only if not already initialized)
+(window as unknown as { __contentScriptExports?: { sendMessageToBackground: typeof sendMessageToBackground; logger: typeof logger } }).__contentScriptExports = { sendMessageToBackground, logger };
+
+} // End of if (!alreadyInitialized)
+
+// Re-export from window for module compatibility
+const exports = (window as unknown as { __contentScriptExports?: { sendMessageToBackground: unknown; logger: unknown } }).__contentScriptExports;
+const sendMessageToBackground = exports?.sendMessageToBackground;
+const logger = exports?.logger;
 
 export { sendMessageToBackground, logger };

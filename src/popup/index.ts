@@ -783,8 +783,8 @@ function updateFBButtonStates(): void {
   // Start button: enabled when not running AND has selected pending tabs
   startBtn.disabled = fbReplyRunning || !hasSelectedPendingTabs;
 
-  // Stop button: enabled only when running
-  stopBtn.disabled = !fbReplyRunning;
+  // Stop button: only visible when running
+  stopBtn.style.display = fbReplyRunning ? 'inline-block' : 'none';
 
   // Select/Deselect buttons: disabled when running or no tabs
   selectAllBtn.disabled = fbReplyRunning || !hasTabs;
@@ -948,7 +948,7 @@ async function startFBAutoReply(): Promise<void> {
   let completed = 0;
   const total = selectedPendingTabs.length;
 
-  const actionDesc = doReply && doClose ? 'reply & close' : doReply ? 'reply' : 'close';
+  const actionDesc = getActionLabel().toLowerCase();
 
   logger.info(`FB Auto Reply: Starting ${actionDesc}`, {
     doReply,
@@ -983,11 +983,12 @@ async function startFBAutoReply(): Promise<void> {
     updateFBButtonStates();
 
     try {
-      let replySuccess = true;
+      let actionSuccess = true;
+      let needsTabSwitch = doReply;
+      let scriptInjected = false;
 
-      // Reply action
-      if (doReply) {
-        // Switch to the tab
+      // Switch to tab and inject script if needed for reply or react
+      if (needsTabSwitch) {
         logger.debug('FB Auto Reply: Switching to tab', { tabId: tab.id });
         await chrome.tabs.update(tab.id, { active: true });
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -1000,6 +1001,7 @@ async function startFBAutoReply(): Promise<void> {
               files: ['content/index.js'],
             });
             logger.debug('FB Auto Reply: Content script injected', { tabId: tab.id, attempt });
+            scriptInjected = true;
             break;
           } catch (injectError) {
             const errMsg = injectError instanceof Error ? injectError.message : String(injectError);
@@ -1016,8 +1018,10 @@ async function startFBAutoReply(): Promise<void> {
 
         // Wait for script to initialize
         await new Promise(resolve => setTimeout(resolve, 1000));
+      }
 
-        // Send auto reply message with retry
+      // Reply action
+      if (doReply && actionSuccess) {
         let response = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -1031,7 +1035,6 @@ async function startFBAutoReply(): Promise<void> {
             const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
             logger.warn('FB Auto Reply: Message send failed', { tabId: tab.id, attempt, error: errMsg });
             if (attempt < 3) {
-              // Try re-injecting script before retry
               try {
                 await chrome.scripting.executeScript({
                   target: { tabId: tab.id },
@@ -1049,9 +1052,8 @@ async function startFBAutoReply(): Promise<void> {
 
         if (response?.success) {
           logger.info(`FB Auto Reply: Tab ${tabIndex} reply successful`, { tabId: tab.id });
-          replySuccess = true;
         } else {
-          replySuccess = false;
+          actionSuccess = false;
           tab.status = 'error';
           tab.error = response?.error || 'Unknown error';
           logger.error(`FB Auto Reply: Tab ${tabIndex} reply failed`, {
@@ -1061,10 +1063,10 @@ async function startFBAutoReply(): Promise<void> {
         }
       }
 
-      // Close action (only if reply succeeded or reply not selected)
-      if (doClose && replySuccess) {
+      // Close action (only if previous actions succeeded or not selected)
+      if (doClose && actionSuccess) {
         if (doReply) {
-          // Wait a bit after reply before closing
+          // Wait a bit after actions before closing
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         logger.debug('FB Auto Reply: Closing tab', { tabId: tab.id });
@@ -1073,7 +1075,7 @@ async function startFBAutoReply(): Promise<void> {
       }
 
       // Mark as done if all actions succeeded
-      if (replySuccess) {
+      if (actionSuccess) {
         tab.status = 'done';
         completed++;
         logger.info(`FB Auto Reply: Tab ${tabIndex} completed successfully`, { tabId: tab.id });
@@ -1146,7 +1148,9 @@ async function setupFBAutoReply(): Promise<void> {
   const closeCheckbox = document.getElementById('fbActionClose') as HTMLInputElement;
 
   // Load saved settings
-  const stored = await chrome.storage.local.get(['fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose']);
+  const stored = await chrome.storage.local.get([
+    'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
+  ]);
   if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
   if (stored.fbReplyDelay) delayEl.value = stored.fbReplyDelay;
   if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;

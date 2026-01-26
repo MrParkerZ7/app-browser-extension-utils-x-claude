@@ -166,6 +166,9 @@ const submitSelectors = [
 │  FB Auto Reply                                                 │
 │  Auto reply to Facebook comment tabs (URLs with comment_id).   │
 │                                                                │
+│  Actions:                                                      │
+│  [✓] Reply to comment    [✓] Close tab after success          │
+│                                                                │
 │  Reply Message:                                                │
 │  ┌──────────────────────────────────────────────────────────┐ │
 │  │ Enter your reply message here...                         │ │
@@ -186,12 +189,14 @@ const submitSelectors = [
 │  │ [✓] #3  Facebook Comment Thread...          [Pending]    │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
-│  [Scan Tabs]  [Start Auto Reply]  [Stop]                       │
+│  [Scan Tabs]  [Reply & Close]  [Stop]                          │
 │                                                                │
 │  ████████████░░░░░░░░ 2 / 3 completed                         │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+**Note:** The "Stop" button is only visible when a job is running.
 
 #### FBTab Interface
 
@@ -206,6 +211,20 @@ interface FBTab {
   selected: boolean; // Whether tab is selected for processing
 }
 ```
+
+#### FBActions Interface
+
+```typescript
+interface FBActions {
+  reply: boolean;  // Whether to reply to comments
+  close: boolean;  // Whether to close tabs after success
+}
+```
+
+By default, both actions are enabled. The start button label changes based on selected actions:
+- Both enabled: "Reply & Close"
+- Reply only: "Reply"
+- Close only: "Close Tabs"
 
 #### Tab Status States
 
@@ -230,17 +249,19 @@ interface FBTab {
 - Updates UI with found tabs
 
 **startFBAutoReply()**
-- Validates message is not empty
+- Validates at least one action is selected
+- Validates message is not empty (if Reply action is enabled)
 - Sets `fbReplyRunning = true`
 - For each **selected** pending tab:
-  1. Switch to tab (`chrome.tabs.update`)
+  1. Switch to tab (`chrome.tabs.update`) - only if Reply action is enabled
   2. Wait 1500ms for page to be ready
   3. Inject content script (with 3 retry attempts)
   4. Wait 1000ms for script to initialize
-  5. Send `FB_AUTO_REPLY` message (with 3 retry attempts)
-  6. On success: mark as `done`, close tab
-  7. On failure: mark as `error`
-  8. Wait for configured delay before next tab
+  5. If Reply enabled: Send `FB_AUTO_REPLY` message (with 3 retry attempts)
+  6. If Close enabled: Close tab (`chrome.tabs.remove`)
+  7. On success: mark as `done`
+  8. On failure: mark as `error`
+  9. Wait for configured delay before next tab
 
 **stopFBAutoReply()**
 - Sets `fbReplyAbort = true`
@@ -257,9 +278,14 @@ interface FBTab {
 **updateFBButtonStates()**
 - Dynamically enables/disables buttons based on state:
   - Scan: disabled when running
-  - Start: disabled when running OR no **selected** pending tabs
-  - Stop: enabled only when running
+  - Start: disabled when running OR no **selected** pending tabs; label changes based on selected actions
+  - Stop: hidden when not running, visible only when running
   - Select All / Deselect All: disabled when running or no tabs
+
+**updateFBActionUI()**
+- Updates UI based on selected actions:
+  - Shows/hides message input based on Reply checkbox
+  - Updates button states via `updateFBButtonStates()`
 
 **renderFBTabs()**
 - Renders tab list with checkboxes for selection
@@ -272,16 +298,22 @@ interface FBTab {
 Settings are persisted to `chrome.storage.local`:
 
 ```typescript
-// Keys: 'fbReplyMessage', 'fbReplyDelay'
+// Keys: 'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
 chrome.storage.local.set({
   fbReplyMessage: messageEl.value,
-  fbReplyDelay: delayEl.value
+  fbReplyDelay: delayEl.value,
+  fbActionReply: replyCheckbox.checked,
+  fbActionClose: closeCheckbox.checked
 });
 
 // Restored on popup open
-const stored = await chrome.storage.local.get(['fbReplyMessage', 'fbReplyDelay']);
+const stored = await chrome.storage.local.get([
+  'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
+]);
 if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
 if (stored.fbReplyDelay) delayEl.value = stored.fbReplyDelay;
+if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;
+if (stored.fbActionClose !== undefined) closeCheckbox.checked = stored.fbActionClose;
 ```
 
 ## Permissions
@@ -352,11 +384,13 @@ When no submit button is found after typing:
 
 | Scenario | Steps |
 |----------|-------|
-| Reply to all comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs" (all selected by default), 5. Click "Start Auto Reply" |
-| Reply to specific tabs | 1. Click "Scan Tabs", 2. Uncheck tabs you want to skip, 3. Click "Start Auto Reply" |
+| Reply to all comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs" (all selected by default), 5. Click "Reply & Close" |
+| Reply without closing | 1. Uncheck "Close tab after success", 2. Click "Scan Tabs", 3. Click "Reply" |
+| Close tabs only | 1. Uncheck "Reply to comment", 2. Click "Scan Tabs", 3. Click "Close Tabs" |
+| Reply to specific tabs | 1. Click "Scan Tabs", 2. Uncheck tabs you want to skip, 3. Click start button |
 | Select/deselect all | Use "Select All" or "Deselect All" buttons to quickly toggle all tabs |
 | Stop mid-process | Click "Stop" button; current tab finishes, then stops |
-| Retry failed tabs | Click "Scan Tabs" to refresh, then "Start Auto Reply" |
+| Retry failed tabs | Click "Scan Tabs" to refresh, then click start button |
 | Adjust timing | Change "Delay between replies" value (500-10000ms) |
 
 ### Valid URL Patterns
