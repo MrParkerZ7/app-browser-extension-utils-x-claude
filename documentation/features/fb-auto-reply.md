@@ -176,7 +176,7 @@ const submitSelectors = [
 │  │                                                          │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
-│  Delay between replies (ms): [2000]                            │
+│  Delay between replies (ms): [1500] to [3000]                  │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐ │
 │  │ Found 3 FB comment tab(s) ready to reply.       (status) │ │
@@ -298,20 +298,22 @@ By default, both actions are enabled. The start button label changes based on se
 Settings are persisted to `chrome.storage.local`:
 
 ```typescript
-// Keys: 'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
+// Keys: 'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax', 'fbActionReply', 'fbActionClose'
 chrome.storage.local.set({
   fbReplyMessage: messageEl.value,
-  fbReplyDelay: delayEl.value,
+  fbReplyDelayMin: delayMinEl.value,
+  fbReplyDelayMax: delayMaxEl.value,
   fbActionReply: replyCheckbox.checked,
   fbActionClose: closeCheckbox.checked
 });
 
 // Restored on popup open
 const stored = await chrome.storage.local.get([
-  'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
+  'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax', 'fbActionReply', 'fbActionClose'
 ]);
 if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
-if (stored.fbReplyDelay) delayEl.value = stored.fbReplyDelay;
+if (stored.fbReplyDelayMin) delayMinEl.value = stored.fbReplyDelayMin;
+if (stored.fbReplyDelayMax) delayMaxEl.value = stored.fbReplyDelayMax;
 if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;
 if (stored.fbActionClose !== undefined) closeCheckbox.checked = stored.fbActionClose;
 ```
@@ -391,7 +393,7 @@ When no submit button is found after typing:
 | Select/deselect all | Use "Select All" or "Deselect All" buttons to quickly toggle all tabs |
 | Stop mid-process | Click "Stop" button; current tab finishes, then stops |
 | Retry failed tabs | Click "Scan Tabs" to refresh, then click start button |
-| Adjust timing | Change "Delay between replies" value (500-10000ms) |
+| Adjust timing | Set min and max delay values (500-10000ms) for random delay between tabs |
 
 ### Valid URL Patterns
 

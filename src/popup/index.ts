@@ -916,12 +916,18 @@ async function scanFBTabs(): Promise<void> {
   updateFBProgress(0, 0);
 }
 
+function getRandomDelay(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 async function startFBAutoReply(): Promise<void> {
   const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
-  const delayEl = document.getElementById('fbReplyDelay') as HTMLInputElement;
+  const delayMinEl = document.getElementById('fbReplyDelayMin') as HTMLInputElement;
+  const delayMaxEl = document.getElementById('fbReplyDelayMax') as HTMLInputElement;
 
   const message = messageEl.value.trim();
-  const delay = parseInt(delayEl.value, 10) || 2000;
+  const delayMin = parseInt(delayMinEl.value, 10) || 1500;
+  const delayMax = parseInt(delayMaxEl.value, 10) || 3000;
   const doReply = fbActions.reply;
   const doClose = fbActions.close;
 
@@ -954,7 +960,7 @@ async function startFBAutoReply(): Promise<void> {
     doReply,
     doClose,
     message: doReply ? message : undefined,
-    delay,
+    delayRange: `${delayMin}-${delayMax}ms`,
     totalTabs: total,
   });
 
@@ -1093,10 +1099,11 @@ async function startFBAutoReply(): Promise<void> {
     updateFBButtonStates();
     updateFBProgress(completed, total);
 
-    // Wait before next tab
+    // Wait before next tab with random delay
     if (!fbReplyAbort && selectedPendingTabs.indexOf(tab) < selectedPendingTabs.length - 1) {
-      logger.debug('FB Auto Reply: Waiting before next tab', { delay });
-      await new Promise(resolve => setTimeout(resolve, delay));
+      const randomDelay = getRandomDelay(delayMin, delayMax);
+      logger.debug('FB Auto Reply: Waiting before next tab', { randomDelay, delayMin, delayMax });
+      await new Promise(resolve => setTimeout(resolve, randomDelay));
     }
   }
 
@@ -1143,16 +1150,18 @@ async function setupFBAutoReply(): Promise<void> {
   const selectAllBtn = document.getElementById('fbSelectAllBtn') as HTMLButtonElement;
   const deselectAllBtn = document.getElementById('fbDeselectAllBtn') as HTMLButtonElement;
   const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
-  const delayEl = document.getElementById('fbReplyDelay') as HTMLInputElement;
+  const delayMinEl = document.getElementById('fbReplyDelayMin') as HTMLInputElement;
+  const delayMaxEl = document.getElementById('fbReplyDelayMax') as HTMLInputElement;
   const replyCheckbox = document.getElementById('fbActionReply') as HTMLInputElement;
   const closeCheckbox = document.getElementById('fbActionClose') as HTMLInputElement;
 
   // Load saved settings
   const stored = await chrome.storage.local.get([
-    'fbReplyMessage', 'fbReplyDelay', 'fbActionReply', 'fbActionClose'
+    'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax', 'fbActionReply', 'fbActionClose'
   ]);
   if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
-  if (stored.fbReplyDelay) delayEl.value = stored.fbReplyDelay;
+  if (stored.fbReplyDelayMin) delayMinEl.value = stored.fbReplyDelayMin;
+  if (stored.fbReplyDelayMax) delayMaxEl.value = stored.fbReplyDelayMax;
   if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;
   if (stored.fbActionClose !== undefined) closeCheckbox.checked = stored.fbActionClose;
 
@@ -1166,8 +1175,12 @@ async function setupFBAutoReply(): Promise<void> {
     chrome.storage.local.set({ fbReplyMessage: messageEl.value });
   });
 
-  delayEl.addEventListener('input', () => {
-    chrome.storage.local.set({ fbReplyDelay: delayEl.value });
+  delayMinEl.addEventListener('input', () => {
+    chrome.storage.local.set({ fbReplyDelayMin: delayMinEl.value });
+  });
+
+  delayMaxEl.addEventListener('input', () => {
+    chrome.storage.local.set({ fbReplyDelayMax: delayMaxEl.value });
   });
 
   replyCheckbox.addEventListener('change', () => {

@@ -765,6 +765,21 @@
       border-color: #64ffda;
     }
 
+    .fb-delay-range {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fb-delay-input {
+      width: 80px;
+    }
+
+    .fb-delay-separator {
+      color: #8892b0;
+      font-size: 13px;
+    }
+
     .fb-action-checkboxes {
       display: flex;
       flex-direction: column;
@@ -1132,7 +1147,11 @@
 
         <div class="fb-reply-settings">
           <label class="fb-reply-label">Delay between replies (ms):</label>
-          <input type="number" id="fbReplyDelay" class="fb-reply-input" value="2000" min="500" max="10000" />
+          <div class="fb-delay-range">
+            <input type="number" id="fbReplyDelayMin" class="fb-reply-input fb-delay-input" value="1500" min="500" max="10000" />
+            <span class="fb-delay-separator">to</span>
+            <input type="number" id="fbReplyDelayMax" class="fb-reply-input fb-delay-input" value="3000" min="500" max="10000" />
+          </div>
         </div>
 
         <div class="fb-reply-status" id="fbReplyStatus"></div>
