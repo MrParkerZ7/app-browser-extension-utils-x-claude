@@ -86,13 +86,20 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 #### FBTabStatus
 `'pending' | 'processing' | 'done' | 'error'`
 
+#### FBReplySteps
+| Field | Type | Description |
+|-------|------|-------------|
+| `clickReply` | `boolean` | Whether to click the Reply button |
+| `inputText` | `boolean` | Whether to input the message text |
+| `submitReply` | `boolean` | Whether to submit the reply |
+
 #### FBAutoReplyConfig
 | Field | Type | Description |
 |-------|------|-------------|
 | `message` | `string` | Reply message to post |
 | `delayMin` | `number` | Minimum delay between tabs (ms) |
 | `delayMax` | `number` | Maximum delay between tabs (ms) |
-| `doReply` | `boolean` | Whether to reply to comments |
+| `steps` | `FBReplySteps` | Which reply steps to perform |
 | `doClose` | `boolean` | Whether to close tabs after success |
 
 #### FBAutoReplyState
@@ -109,7 +116,7 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 **Content Script Messages:**
 | Type | Payload | Description |
 |------|---------|-------------|
-| `FB_AUTO_REPLY` | `{ message: string }` | Request to post a reply |
+| `FB_AUTO_REPLY` | `{ message: string, steps: FBReplySteps }` | Request to post a reply with specified steps |
 | `FB_AUTO_REPLY_RESULT` | `FBReplyResult` | Response with success/error |
 
 **Background Service Messages:**
@@ -125,62 +132,106 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 
 ### Content Script (`src/content/index.ts`)
 
-#### getCommentIdFromUrl()
+#### getCommentIdsFromUrl()
 
-Extracts the comment ID from the current URL parameters.
+Extracts comment IDs from the current URL parameters and determines the target.
 
 ```typescript
-function getCommentIdFromUrl(): string | null {
+interface CommentIds {
+  commentId: string | null;      // The main comment ID
+  replyCommentId: string | null; // The specific reply ID (if present)
+  targetId: string | null;       // The ID to target (prefers reply_comment_id)
+  isReplyTarget: boolean;        // Whether we're targeting a reply
+}
+
+function getCommentIdsFromUrl(): CommentIds {
   const url = new URL(window.location.href);
-  // Try reply_comment_id first (more specific), then comment_id
-  return url.searchParams.get('reply_comment_id') || url.searchParams.get('comment_id');
+  const commentId = url.searchParams.get('comment_id');
+  const replyCommentId = url.searchParams.get('reply_comment_id');
+
+  return {
+    commentId,
+    replyCommentId,
+    targetId: replyCommentId || commentId,
+    isReplyTarget: replyCommentId !== null,
+  };
 }
 ```
 
-#### findCommentById(commentId: string)
+**URL Targeting Logic:**
+- URL with only `comment_id` → Target the main comment (prefer shallowest element)
+- URL with both `comment_id` and `reply_comment_id` → Target the specific reply (prefer deepest element)
+
+#### findCommentById(targetId: string, isReplyTarget: boolean)
 
 Locates the specific comment element on the page using multiple strategies:
 
-1. **Link href search** - Find links containing `comment_id=` in href, then get parent `[role="article"]`
-2. **Data attribute search** - Look for `[data-ft*="ID"]` or `[data-commentid="ID"]`
-3. **innerHTML search** - Search all `[role="article"]` elements containing the ID
-4. **Timestamp/permalink links** - Check `a[href*="permalink"]` or `a[href*="comment"]`
+1. **Exact parameter match** - For `comment_id`, matches `comment_id=ID` (not `reply_comment_id=ID`)
+2. **Depth-based selection** - Main comments prefer shallowest; replies prefer deepest
+3. **Data attribute search** - Look for `[data-ft*="ID"]` or `[data-commentid="ID"]`
+4. **Article search** - Search all `[role="article"]` elements containing the ID
 
-#### performFBReply(message: string)
+#### performFBReply(message: string, steps: FBReplySteps)
 
-Main automation function that posts a reply to a Facebook comment:
+Main automation function that posts a reply to a Facebook comment. Each step can be enabled/disabled independently for testing purposes.
 
-1. **Wait for page load** - 2000ms initial delay
-2. **Get comment ID** - Extract from URL parameters
-3. **Find target comment** - Use `findCommentById()` to locate the element
-4. **Scroll to comment** - `scrollIntoView({ behavior: 'smooth', block: 'center' })`
-5. **Click Reply button** - Search for buttons with text "Reply", "Phản hồi", or "Trả lời"
-6. **Find input field** - Locate `contenteditable` textbox using various selectors
-7. **Type message** - Append text after existing @mention tag (see Text Insertion below)
-8. **Submit** - Click submit button once, or fallback to Enter key
+**Step 1: Click Reply Button** (if `steps.clickReply`)
+1. Wait for page load - 2000ms initial delay
+2. Get comment IDs from URL parameters
+3. Find target comment using `findCommentById()`
+4. Scroll to comment - `scrollIntoView({ behavior: 'smooth', block: 'center' })`
+5. Click Reply button - Search for buttons with text "Reply", "Phản hồi", or "Trả lời"
+
+**Step 2: Input Text** (if `steps.inputText`)
+1. Find input field - Locate `contenteditable` textbox
+2. Check for Facebook's automatic @mention
+3. If no @mention, extract profile name and insert manual @mention
+4. Type message after @mention
+
+**Step 3: Submit Reply** (if `steps.submitReply`)
+1. Press Enter key to submit
+2. If Enter fails, find and click submit button
 
 **Text Insertion Logic:**
 
-When clicking "Reply" on Facebook, an @mention tag is automatically inserted (e.g., `@John Doe`). The extension preserves this tag and appends the message after it:
+When clicking "Reply" on Facebook, an @mention tag may be automatically inserted. The extension:
+1. Waits and checks up to 3 times for Facebook's @mention
+2. If no @mention detected, extracts profile name from comment and inserts manual @mention
+3. Appends the message after the @mention
 
 ```typescript
-// Move cursor to end of existing content (after @mention if present)
-const selection = window.getSelection();
-const range = document.createRange();
-range.selectNodeContents(input);
-range.collapse(false); // false = collapse to end
-selection?.removeAllRanges();
-selection?.addRange(range);
+// Check for Facebook's @mention
+let hasFacebookMention = false;
+for (let attempt = 0; attempt < 3; attempt++) {
+  const mentionSpan = input.querySelector('[data-lexical-text="true"]');
+  const inputText = input.textContent?.trim() || '';
+  if (mentionSpan || inputText.startsWith('@')) {
+    hasFacebookMention = true;
+    break;
+  }
+  await wait(500);
+}
 
-// Add space before message if @mention exists
-const existingText = input.textContent?.trim() || '';
-const textToInsert = existingText ? ' ' + message : message;
-
-// Insert at cursor position (end)
-document.execCommand('insertText', false, textToInsert);
+// If no @mention, extract profile name and insert manually
+if (!hasFacebookMention && targetComment) {
+  const profileName = extractProfileName(targetComment);
+  if (profileName) {
+    textToInsert = `@${profileName} ${message}`;
+  }
+}
 ```
 
-**Result:** `@John Doe your message here` (not `your message here@John Doe`)
+**Result:** `@John Doe your message here`
+
+#### extractProfileName(commentElement: HTMLElement)
+
+Extracts the commenter's profile name for manual @mention insertion:
+
+1. **First valid link** - The first link in a comment is typically the profile name
+2. **Span with link** - Look for `span[dir="auto"]` containing links
+3. **Profile URL pattern** - Links matching `/user/` or `profile.php`
+
+Filters out: timestamps, action buttons (Like/Reply), comment links, and deeply nested elements
 
 **Reply Button Detection:**
 - Text matching: `reply`, `phản hồi`, `trả lời`
@@ -287,13 +338,17 @@ let fbAbort = false;
 │  FB Auto Reply                                                 │
 │  Auto reply to Facebook comment tabs (URLs with comment_id).   │
 │                                                                │
-│  Actions:                                                      │
-│  [✓] Reply to comment    [✓] Close tab after success          │
+│  Reply steps to perform:                                       │
+│  [✓] Click Reply button                                        │
+│  [✓] Input text                                                │
+│  [✓] Submit reply                                              │
+│                                                                │
+│  After completion:                                             │
+│  [✓] Close tab                                                 │
 │                                                                │
 │  Reply Message:                                                │
 │  ┌──────────────────────────────────────────────────────────┐ │
 │  │ Enter your reply message here...                         │ │
-│  │                                                          │ │
 │  │                                                          │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
@@ -318,6 +373,7 @@ let fbAbort = false;
 ```
 
 **Note:** The "Stop" button is only visible when a job is running.
+**Note:** Uncheck steps to test individual parts of the reply flow without submitting.
 
 #### Local State
 
@@ -406,24 +462,22 @@ chrome.runtime.onMessage.addListener((message) => {
 Settings are persisted to `chrome.storage.local`:
 
 ```typescript
-// Keys: 'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax', 'fbActionReply', 'fbActionClose'
+// Keys for step checkboxes and settings
 chrome.storage.local.set({
   fbReplyMessage: messageEl.value,
   fbReplyDelayMin: delayMinEl.value,
   fbReplyDelayMax: delayMaxEl.value,
-  fbActionReply: replyCheckbox.checked,
+  fbStepClickReply: stepClickReply.checked,
+  fbStepInputText: stepInputText.checked,
+  fbStepSubmit: stepSubmit.checked,
   fbActionClose: closeCheckbox.checked
 });
 
 // Restored on popup open
 const stored = await chrome.storage.local.get([
-  'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax', 'fbActionReply', 'fbActionClose'
+  'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax',
+  'fbStepClickReply', 'fbStepInputText', 'fbStepSubmit', 'fbActionClose'
 ]);
-if (stored.fbReplyMessage) messageEl.value = stored.fbReplyMessage;
-if (stored.fbReplyDelayMin) delayMinEl.value = stored.fbReplyDelayMin;
-if (stored.fbReplyDelayMax) delayMaxEl.value = stored.fbReplyDelayMax;
-if (stored.fbActionReply !== undefined) replyCheckbox.checked = stored.fbActionReply;
-if (stored.fbActionClose !== undefined) closeCheckbox.checked = stored.fbActionClose;
 ```
 
 ## Permissions
@@ -494,9 +548,11 @@ When no submit button is found after typing:
 
 | Scenario | Steps |
 |----------|-------|
-| Reply to all comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs" (all selected by default), 5. Click "Reply & Close" |
-| Reply without closing | 1. Uncheck "Close tab after success", 2. Click "Scan Tabs", 3. Click "Reply" |
-| Close tabs only | 1. Uncheck "Reply to comment", 2. Click "Scan Tabs", 3. Click "Close Tabs" |
+| Reply to all comments | 1. Open Facebook comment tabs, 2. Open extension, 3. Enter message, 4. Click "Scan Tabs", 5. Click "Reply & Close" |
+| Reply without closing | 1. Uncheck "Close tab", 2. Click "Scan Tabs", 3. Click "Reply" |
+| Close tabs only | 1. Uncheck all reply steps, 2. Check "Close tab", 3. Click "Scan Tabs", 4. Click "Close Tabs" |
+| Test click only | 1. Uncheck "Input text" and "Submit reply", 2. Keep "Click Reply button" checked, 3. Run to test reply button detection |
+| Test input without submitting | 1. Uncheck "Submit reply", 2. Keep other steps checked, 3. Run to see text input without posting |
 | Reply to specific tabs | 1. Click "Scan Tabs", 2. Uncheck tabs you want to skip, 3. Click start button |
 | Select/deselect all | Use "Select All" or "Deselect All" buttons to quickly toggle all tabs |
 | Stop mid-process | Click "Stop" button; current tab finishes, then stops |
@@ -506,13 +562,18 @@ When no submit button is found after typing:
 
 ### Valid URL Patterns
 
-| URL Pattern | Detected |
-|-------------|----------|
-| `facebook.com/post?comment_id=123` | Yes |
-| `facebook.com/groups/123/posts/456?comment_id=789` | Yes |
-| `facebook.com/photo?reply_comment_id=123` | Yes |
-| `facebook.com/post` | No (missing comment_id) |
-| `m.facebook.com/comment?comment_id=123` | Yes |
+| URL Pattern | Detected | Target |
+|-------------|----------|--------|
+| `facebook.com/post?comment_id=123` | Yes | Main comment 123 |
+| `facebook.com/post?comment_id=123&reply_comment_id=456` | Yes | Reply 456 within comment 123 |
+| `facebook.com/groups/123/posts/456?comment_id=789` | Yes | Main comment 789 |
+| `facebook.com/photo?reply_comment_id=123` | Yes | Reply 123 |
+| `facebook.com/post` | No | (missing comment_id) |
+| `m.facebook.com/comment?comment_id=123` | Yes | Main comment 123 |
+
+**Important:** The extension strictly follows URL parameters:
+- URL with only `comment_id` → Replies to that specific comment (ignores nested replies)
+- URL with `reply_comment_id` → Replies to that specific nested reply
 
 ## Multi-Language Support
 
