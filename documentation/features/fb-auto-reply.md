@@ -4,20 +4,33 @@
 
 FB Auto Reply is an automation tool that scans browser tabs for Facebook comment URLs and automatically posts a configurable reply message to each comment. It processes tabs sequentially with customizable delays between replies.
 
+**Key Feature:** The auto-reply process runs in the background service worker, so it continues even when the popup is closed.
+
 ## Architecture
 
 ```
+┌─────────────────────────┐
+│        Popup            │
+│    (FB Auto Reply UI)   │
+└───────────┬─────────────┘
+            │
+            │  FB_SCAN_TABS, FB_START_AUTO_REPLY,
+            │  FB_STOP_AUTO_REPLY, FB_SELECT_TAB, etc.
+            │
+            ▼
 ┌─────────────────────────┐              ┌─────────────────────────┐
-│        Popup            │              │     Content Script      │
-│    (FB Auto Reply UI)   │              │   (Facebook Page DOM)   │
+│   Background Service    │              │     Content Script      │
+│       Worker            │              │   (Facebook Page DOM)   │
+│  (Main Job Runner)      │              │                         │
 └───────────┬─────────────┘              └───────────┬─────────────┘
+            │                                        │
+            │  FB_STATE_UPDATE                       │
+            │  (broadcasts state to popup)           │
+            ├──────────────────────────────────────► │
             │                                        │
             │  chrome.tabs.query({})                 │
             │  Scan for facebook.com + comment_id   │
-            ├──────────────────────────────────────► │
-            │                                        │
-            │  List of FB comment tabs               │
-            │◄───────────────────────────────────────┤
+            ├────────────────────────────────────────┤
             │                                        │
             │  chrome.tabs.update({ active: true })  │
             │  Switch to tab                         │
@@ -45,7 +58,7 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
             ▼                                        │
 ┌─────────────────────────┐                          │
 │   Process next tab      │                          │
-│   (with delay)          │                          │
+│   (with random delay)   │                          │
 └─────────────────────────┘                          │
 ```
 
@@ -59,11 +72,56 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 | `success` | `boolean` | Whether the reply was posted successfully |
 | `error` | `string?` | Error message if failed |
 
+#### FBTab
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `number` | Chrome tab ID |
+| `index` | `number` | Tab index in browser |
+| `title` | `string` | Tab title |
+| `url` | `string` | Full URL |
+| `status` | `FBTabStatus` | Current processing status |
+| `error` | `string?` | Error message if status is 'error' |
+| `selected` | `boolean` | Whether tab is selected for processing |
+
+#### FBTabStatus
+`'pending' | 'processing' | 'done' | 'error'`
+
+#### FBAutoReplyConfig
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | `string` | Reply message to post |
+| `delayMin` | `number` | Minimum delay between tabs (ms) |
+| `delayMax` | `number` | Maximum delay between tabs (ms) |
+| `doReply` | `boolean` | Whether to reply to comments |
+| `doClose` | `boolean` | Whether to close tabs after success |
+
+#### FBAutoReplyState
+| Field | Type | Description |
+|-------|------|-------------|
+| `running` | `boolean` | Whether auto-reply is currently running |
+| `tabs` | `FBTab[]` | List of scanned Facebook tabs |
+| `completed` | `number` | Number of tabs completed |
+| `total` | `number` | Total number of tabs to process |
+| `currentTabId` | `number?` | ID of tab currently being processed |
+
 #### Message Types
+
+**Content Script Messages:**
 | Type | Payload | Description |
 |------|---------|-------------|
 | `FB_AUTO_REPLY` | `{ message: string }` | Request to post a reply |
 | `FB_AUTO_REPLY_RESULT` | `FBReplyResult` | Response with success/error |
+
+**Background Service Messages:**
+| Type | Payload | Description |
+|------|---------|-------------|
+| `FB_SCAN_TABS` | - | Request to scan for Facebook tabs |
+| `FB_START_AUTO_REPLY` | `FBAutoReplyConfig` | Start the auto-reply process |
+| `FB_STOP_AUTO_REPLY` | - | Stop the running process |
+| `FB_GET_STATE` | - | Get current state |
+| `FB_STATE_UPDATE` | `FBAutoReplyState` | Broadcast state update to popup |
+| `FB_SELECT_TAB` | `{ tabId, selected }` | Toggle tab selection |
+| `FB_SELECT_ALL_TABS` | `{ selected }` | Select/deselect all tabs |
 
 ### Content Script (`src/content/index.ts`)
 
@@ -154,6 +212,69 @@ const submitSelectors = [
 ];
 ```
 
+### Background Service Worker (`src/background/index.ts`)
+
+The background service worker is the main job runner. It maintains state and processes tabs even when the popup is closed.
+
+#### State Management
+
+```typescript
+let fbState: FBAutoReplyState = {
+  running: false,
+  tabs: [],
+  completed: 0,
+  total: 0,
+};
+
+let fbAbort = false;
+```
+
+#### Functions
+
+**isFacebookCommentUrl(url: string)**
+- Returns `true` if URL contains `facebook.com` AND `comment_id`
+
+**getRandomDelay(min: number, max: number)**
+- Returns a random integer between min and max (inclusive)
+- Used for varying delay between tab processing
+
+**broadcastState()**
+- Sends `FB_STATE_UPDATE` message to all extension pages
+- Called after any state change to keep popup in sync
+
+**scanFBTabs()**
+- Queries all browser tabs with `chrome.tabs.query({})`
+- Filters for Facebook comment URLs
+- Populates `fbState.tabs` with status `pending` and `selected: true`
+- Returns the list of found tabs
+
+**startFBAutoReply(config: FBAutoReplyConfig)**
+- Validates at least one action is selected
+- Validates message is not empty (if Reply action is enabled)
+- Sets `fbState.running = true`
+- For each **selected** pending tab:
+  1. Switch to tab (`chrome.tabs.update`) - only if Reply action is enabled
+  2. Wait 1500ms for page to be ready
+  3. Inject content script (with 3 retry attempts)
+  4. Wait 1000ms for script to initialize
+  5. If Reply enabled: Send `FB_AUTO_REPLY` message (with 3 retry attempts)
+  6. If Close enabled: Close tab (`chrome.tabs.remove`)
+  7. On success: mark as `done`, increment `completed`
+  8. On failure: mark as `error` with error message
+  9. Wait for random delay (between delayMin and delayMax) before next tab
+- Broadcasts state after each tab
+
+**stopFBAutoReply()**
+- Sets `fbAbort = true`
+- Current tab finishes processing, then loop stops
+
+**selectTab(tabId: number, selected: boolean)**
+- Updates selection state for a specific tab
+- Only affects tabs with `pending` status
+
+**selectAllTabs(selected: boolean)**
+- Updates selection state for all tabs with `pending` status
+
 ### Popup UI (`src/popup/popup.html`, `src/popup/index.ts`)
 
 #### Layout
@@ -198,39 +319,25 @@ const submitSelectors = [
 
 **Note:** The "Stop" button is only visible when a job is running.
 
-#### FBTab Interface
+#### Local State
+
+The popup maintains a local copy of the state that mirrors the background service worker:
 
 ```typescript
-interface FBTab {
-  id: number;      // Chrome tab ID
-  index: number;   // Tab index in browser
-  title: string;   // Tab title
-  url: string;     // Full URL
-  status: 'skip' | 'pending' | 'processing' | 'done' | 'error';
-  error?: string;  // Error message if status is 'error'
-  selected: boolean; // Whether tab is selected for processing
-}
+let fbState: FBAutoReplyState = {
+  running: false,
+  tabs: [],
+  completed: 0,
+  total: 0,
+};
 ```
 
-#### FBActions Interface
-
-```typescript
-interface FBActions {
-  reply: boolean;  // Whether to reply to comments
-  close: boolean;  // Whether to close tabs after success
-}
-```
-
-By default, both actions are enabled. The start button label changes based on selected actions:
-- Both enabled: "Reply & Close"
-- Reply only: "Reply"
-- Close only: "Close Tabs"
+This state is updated via `FB_STATE_UPDATE` messages from the background.
 
 #### Tab Status States
 
 | Status | Style | Description |
 |--------|-------|-------------|
-| `skip` | Gray | Tab skipped (not a valid FB comment URL) |
 | `pending` | Default | Waiting to be processed |
 | `processing` | Yellow | Currently being processed |
 | `done` | Green | Successfully replied and tab closed |
@@ -238,42 +345,40 @@ By default, both actions are enabled. The start button label changes based on se
 
 #### Functions
 
-**isFacebookCommentUrl(url: string)**
-- Returns `true` if URL contains `facebook.com` AND `comment_id`
+All tab processing logic runs in the background service worker. The popup functions send messages to the background:
 
 **scanFBTabs()**
-- Queries all browser tabs with `chrome.tabs.query({})`
-- Filters for Facebook comment URLs
-- Populates `fbTabs[]` array with status `pending` and `selected: true`
-- All tabs are selected by default
-- Updates UI with found tabs
+- Sends `FB_SCAN_TABS` message to background
+- Background scans tabs and broadcasts state update
 
 **startFBAutoReply()**
 - Validates at least one action is selected
 - Validates message is not empty (if Reply action is enabled)
-- Sets `fbReplyRunning = true`
-- For each **selected** pending tab:
-  1. Switch to tab (`chrome.tabs.update`) - only if Reply action is enabled
-  2. Wait 1500ms for page to be ready
-  3. Inject content script (with 3 retry attempts)
-  4. Wait 1000ms for script to initialize
-  5. If Reply enabled: Send `FB_AUTO_REPLY` message (with 3 retry attempts)
-  6. If Close enabled: Close tab (`chrome.tabs.remove`)
-  7. On success: mark as `done`
-  8. On failure: mark as `error`
-  9. Wait for configured delay before next tab
+- Sends `FB_START_AUTO_REPLY` message with config to background
+- Background processes tabs and broadcasts state updates
 
 **stopFBAutoReply()**
-- Sets `fbReplyAbort = true`
-- Current tab finishes processing, then loop stops
+- Sends `FB_STOP_AUTO_REPLY` message to background
+- Background stops after current tab finishes
 
-**selectAllFBTabs()**
-- Sets `selected: true` for all tabs with `pending` status
-- Updates UI and button states
+**selectTab(tabId, selected) / selectAllTabs(selected)**
+- Sends `FB_SELECT_TAB` or `FB_SELECT_ALL_TABS` message to background
+- Background updates state and broadcasts update
 
-**deselectAllFBTabs()**
-- Sets `selected: false` for all tabs with `pending` status
-- Updates UI and button states
+**applyFBState(state: FBAutoReplyState)**
+- Updates local state from background state update
+- Calls render functions to update UI
+
+**State Sync Listener:**
+```typescript
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'FB_STATE_UPDATE' && message.payload) {
+    applyFBState(message.payload as FBAutoReplyState);
+  }
+});
+```
+
+#### UI Functions
 
 **updateFBButtonStates()**
 - Dynamically enables/disables buttons based on state:
@@ -292,6 +397,9 @@ By default, both actions are enabled. The start button label changes based on se
 - Shows selected count in header
 - Checkboxes disabled for non-pending tabs or when running
 - Unselected tabs appear dimmed
+
+**updateFBStatus() / updateFBProgress()**
+- Updates status text and progress bar based on current state
 
 ## Storage
 
@@ -352,7 +460,7 @@ When the content script cannot be injected (e.g., restricted page):
 
 ### Message Send Failed
 
-When the popup cannot communicate with the content script:
+When the background cannot communicate with the content script:
 
 **Behavior:** Re-injects content script and retries up to 3 times
 
@@ -394,6 +502,7 @@ When no submit button is found after typing:
 | Stop mid-process | Click "Stop" button; current tab finishes, then stops |
 | Retry failed tabs | Click "Scan Tabs" to refresh, then click start button |
 | Adjust timing | Set min and max delay values (500-10000ms) for random delay between tabs |
+| Close popup while running | The process continues in background; reopen popup to see progress |
 
 ### Valid URL Patterns
 
