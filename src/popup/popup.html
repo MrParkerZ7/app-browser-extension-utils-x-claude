@@ -218,6 +218,7 @@
 
     .log-table {
       width: 100%;
+      max-width: 1200px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -348,8 +349,6 @@
 
     .log-message {
       color: #e0e0e0;
-      word-break: break-word;
-      max-width: 500px;
     }
 
     .log-data {
@@ -359,25 +358,71 @@
       background: #0a1520;
       padding: 4px 8px;
       border-radius: 3px;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    .log-data:hover {
-      white-space: normal;
-      word-break: break-all;
     }
 
     .log-url {
       font-size: 11px;
       color: #6c757d;
-      max-width: 200px;
+    }
+
+    .log-table col.col-time {
+      width: 140px;
+    }
+
+    .log-table col.col-source {
+      width: 90px;
+    }
+
+    .log-table col.col-level {
+      width: 70px;
+    }
+
+    /* Remaining 900px: Message 40%, Data 40%, URL 20% */
+    .log-table col.col-message {
+      width: 360px;
+    }
+
+    .log-table col.col-data {
+      width: 360px;
+    }
+
+    .log-table col.col-url {
+      width: 180px;
+    }
+
+    .log-table col.hidden-col {
+      width: 0;
+      visibility: collapse;
+    }
+
+    /* Expandable cell content */
+    .log-cell-content {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .log-cell-content:hover {
+      color: #64ffda;
+    }
+
+    .log-cell-content.expanded {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log-cell-content .expand-indicator {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      color: #5a6a7a;
+      transition: transform 0.2s ease;
+    }
+
+    .log-cell-content.expanded .expand-indicator {
+      transform: rotate(90deg);
     }
 
     .empty-state {
@@ -1076,13 +1121,21 @@
       </div>
       <div class="log-container" id="logContainer">
         <table class="log-table">
+          <colgroup>
+            <col class="col-time" data-col="time">
+            <col class="col-source" data-col="source">
+            <col class="col-level" data-col="level">
+            <col class="col-message" data-col="message">
+            <col class="col-data" data-col="data">
+            <col class="col-url" data-col="url">
+          </colgroup>
           <thead>
             <tr>
-              <th data-col="time" data-sort="timestamp" style="width: 160px;"><span class="th-content">Time<span class="sort-icon"></span></span></th>
-              <th data-col="source" data-sort="source" style="width: 100px;"><span class="th-content">Source<span class="sort-icon"></span></span></th>
-              <th data-col="level" data-sort="level" style="width: 80px;"><span class="th-content">Level<span class="sort-icon"></span></span></th>
-              <th data-col="message" data-sort="message" style="width: 400px;"><span class="th-content">Message<span class="sort-icon"></span></span></th>
-              <th data-col="data" style="width: 250px;"><span class="th-content">Data</span></th>
+              <th data-col="time" data-sort="timestamp"><span class="th-content">Time<span class="sort-icon"></span></span></th>
+              <th data-col="source" data-sort="source"><span class="th-content">Source<span class="sort-icon"></span></span></th>
+              <th data-col="level" data-sort="level"><span class="th-content">Level<span class="sort-icon"></span></span></th>
+              <th data-col="message" data-sort="message"><span class="th-content">Message<span class="sort-icon"></span></span></th>
+              <th data-col="data"><span class="th-content">Data</span></th>
               <th data-col="url" data-sort="url"><span class="th-content">URL<span class="sort-icon"></span></span></th>
             </tr>
           </thead>

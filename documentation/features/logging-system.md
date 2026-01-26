@@ -157,8 +157,39 @@ The ↗ button in the header opens the dashboard in a separate browser window (1
 | Time | Format: `MM/DD HH:mm:ss.ms` |
 | Source badge | Color-coded: blue (background), purple (content), teal (popup) |
 | Level badge | Color-coded: gray (debug), teal (info), yellow (warn), red (error) |
-| Data cell | Truncated JSON, expands on hover |
-| URL cell | Truncated, full path on hover |
+| Message cell | Clickable, expands/collapses on click |
+| Data cell | Clickable, expands/collapses on click |
+| URL cell | Clickable, expands/collapses on click |
+
+### Expandable Cell Content
+Long content in Message, Data, and URL cells is truncated by default with an expand indicator (▶).
+
+**Behavior:**
+- Click any cell content to toggle expanded/collapsed state
+- Expanded content shows full text with word wrapping
+- The expand indicator rotates 90° when expanded
+- Hover highlights the content in teal to indicate clickability
+
+**Truncation Limits:**
+| Column | Max Characters |
+|--------|----------------|
+| Message | 60 |
+| Data | 40 |
+| URL | 30 |
+
+### Fixed Column Widths
+The log table uses fixed column widths via `<colgroup>` for consistent layout:
+
+| Column | Width |
+|--------|-------|
+| Time | 140px |
+| Source | 90px |
+| Level | 70px |
+| Message | 360px |
+| Data | 360px |
+| URL | 180px |
+
+**Total table width:** 1200px (max)
 
 ### Column Customization
 
@@ -166,6 +197,7 @@ The ↗ button in the header opens the dashboard in a separate browser window (1
 - Click "Columns" button in toolbar to open dropdown
 - Toggle checkboxes to show/hide individual columns
 - Available columns: Time, Source, Level, Message, Data, URL
+- Hidden columns collapse to zero width (using CSS `visibility: collapse`)
 - Settings persist to `chrome.storage.local`
 
 **Sorting:**
@@ -208,6 +240,7 @@ const logState: LogState = {
 - [ ] Export logs as JSON/CSV
 - [ ] Log level filtering at source (reduce noise)
 - [ ] Timestamp range filtering
-- [ ] Collapsible data viewer with syntax highlighting
+- [x] ~~Collapsible data viewer~~ (Implemented: click-to-expand cells)
+- [ ] Syntax highlighting for expanded data
 - [ ] Log entry detail modal
 - [ ] Performance metrics integration

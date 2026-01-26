@@ -168,6 +168,13 @@ function getHiddenClass(col: ColumnKey): string {
   return isColumnHidden(col) ? 'hidden-col' : '';
 }
 
+function createExpandableContent(text: string, maxLength: number = 50): string {
+  if (!text) return '';
+  const needsExpand = text.length > maxLength;
+  const indicator = needsExpand ? '<span class="expand-indicator">▶</span>' : '';
+  return `<div class="log-cell-content" title="Click to expand/collapse">${escapeHtml(text)}${indicator}</div>`;
+}
+
 function renderLogs(): void {
   const fragment = document.createDocumentFragment();
   const visibleColCount = COLUMNS.filter(c => !isColumnHidden(c)).length;
@@ -190,9 +197,9 @@ function renderLogs(): void {
         <td class="log-time ${getHiddenClass('time')}" data-col="time">${formatTimestamp(log.timestamp)}</td>
         <td class="${getHiddenClass('source')}" data-col="source"><span class="log-source ${log.source}">${log.source}</span></td>
         <td class="${getHiddenClass('level')}" data-col="level"><span class="log-level ${log.level}">${log.level}</span></td>
-        <td class="log-message ${getHiddenClass('message')}" data-col="message">${escapeHtml(log.message)}</td>
-        <td class="${getHiddenClass('data')}" data-col="data">${dataStr ? `<span class="log-data" title="${escapeHtml(dataStr)}">${escapeHtml(dataStr)}</span>` : ''}</td>
-        <td class="log-url ${getHiddenClass('url')}" data-col="url" title="${escapeHtml(urlStr)}">${escapeHtml(urlStr)}</td>
+        <td class="log-message ${getHiddenClass('message')}" data-col="message">${createExpandableContent(log.message, 60)}</td>
+        <td class="${getHiddenClass('data')}" data-col="data">${dataStr ? `<span class="log-data">${createExpandableContent(dataStr, 40)}</span>` : ''}</td>
+        <td class="log-url ${getHiddenClass('url')}" data-col="url">${createExpandableContent(urlStr, 30)}</td>
       `;
       fragment.appendChild(tr);
     });
@@ -200,6 +207,14 @@ function renderLogs(): void {
 
   logTableBody.innerHTML = '';
   logTableBody.appendChild(fragment);
+
+  // Add click handlers for expandable content
+  logTableBody.querySelectorAll('.log-cell-content').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      el.classList.toggle('expanded');
+    });
+  });
 
   // Auto-scroll to bottom
   if (autoScroll) {
@@ -349,6 +364,17 @@ async function saveTableSettings(): Promise<void> {
 }
 
 function updateColumnVisibilityUI(): void {
+  // Update colgroup visibility
+  const cols = document.querySelectorAll('.log-table col[data-col]');
+  cols.forEach(col => {
+    const colName = col.getAttribute('data-col') as ColumnKey;
+    if (isColumnHidden(colName)) {
+      col.classList.add('hidden-col');
+    } else {
+      col.classList.remove('hidden-col');
+    }
+  });
+
   // Update header visibility
   const headers = document.querySelectorAll('.log-table th[data-col]');
   headers.forEach(th => {
