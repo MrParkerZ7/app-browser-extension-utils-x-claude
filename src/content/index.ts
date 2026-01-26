@@ -2,6 +2,13 @@
 import { createLogger } from '../shared/logger';
 import { CSSSearchResult, FBReplyResult } from '../shared/types';
 
+// Prevent multiple initializations when script is injected multiple times
+const windowWithFlag = window as unknown as { __contentScriptInitialized?: boolean };
+if (windowWithFlag.__contentScriptInitialized) {
+  throw new Error('Content script already initialized');
+}
+windowWithFlag.__contentScriptInitialized = true;
+
 const logger = createLogger('content');
 
 // Helper to wait
