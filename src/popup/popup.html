@@ -548,18 +548,15 @@
       flex-direction: column;
       height: 100%;
       padding: 16px;
-      gap: 16px;
-    }
-
-    .css-counter-input-section {
-      margin-bottom: 16px;
+      gap: 12px;
+      overflow-y: auto;
     }
 
     .css-counter-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 4px;
     }
 
     .css-counter-header h2 {
@@ -568,31 +565,10 @@
       margin: 0;
     }
 
-    .css-input {
-      width: 100%;
-      padding: 10px 12px;
-      background: #0d1b2a;
-      border: 1px solid #0f3460;
-      border-radius: 4px;
-      color: #e0e0e0;
-      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .css-input:focus {
-      border-color: #64ffda;
-    }
-
-    .css-input::placeholder {
-      color: #5a6a7a;
-    }
-
     .css-counter-status {
       padding: 10px 12px;
       border-radius: 4px;
       font-size: 13px;
-      margin-bottom: 12px;
       display: none;
     }
 
@@ -612,57 +588,110 @@
       border: 1px solid #1a5a4a;
     }
 
-    .css-counter-results {
+    .search-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       background: #16213e;
-      border-radius: 8px;
-      padding: 16px;
-      display: none;
-    }
-
-    .css-counter-results.visible {
-      display: block;
-    }
-
-    .css-counter-results h3 {
-      font-size: 14px;
-      color: #8892b0;
-      margin: 0 0 12px 0;
-      font-weight: 500;
-    }
-
-    .counter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 12px;
-    }
-
-    .counter-card {
-      background: #0d1b2a;
       border: 1px solid #0f3460;
       border-radius: 6px;
-      padding: 12px;
-      text-align: center;
-      transition: border-color 0.2s;
+      padding: 10px 12px;
     }
 
-    .counter-card:hover {
-      border-color: #1a4a7a;
+    .search-item .css-input {
+      flex: 1;
+      padding: 8px 10px;
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      outline: none;
     }
 
-    .counter-value {
-      display: block;
-      font-size: 20px;
+    .search-item .css-input:focus {
+      border-color: #64ffda;
+    }
+
+    .search-item .css-input::placeholder {
+      color: #5a6a7a;
+    }
+
+    .search-results {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 200px;
+    }
+
+    .result-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: #0d1b2a;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .result-badge .count {
       font-weight: 600;
       color: #64ffda;
-      margin-bottom: 4px;
     }
 
-    .counter-label {
-      display: block;
-      font-size: 11px;
+    .result-badge .label {
       color: #8892b0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    }
+
+    .btn-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      background: transparent;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      color: #8892b0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: #0f3460;
+      color: #e0e0e0;
+    }
+
+    .btn-icon.btn-remove:hover {
+      background: #5c1e1e;
+      border-color: #8b2e2e;
+      color: #ff6b6b;
+    }
+
+    .btn-icon.btn-add {
+      width: auto;
+      padding: 0 12px;
+      gap: 4px;
+    }
+
+    .btn-icon.btn-add:hover {
+      background: #1a5a4a;
+      border-color: #2a7a6a;
+      color: #64ffda;
+    }
+
+    .add-search-row {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -766,23 +795,20 @@
     <!-- CSS Counter Tab -->
     <div id="tab-css-counter" class="tab-panel">
       <div class="css-counter-container">
-        <div class="css-counter-input-section">
-          <div class="css-counter-header">
-            <h2>HTML Counter</h2>
-            <button class="btn btn-primary" id="recountBtn">Re-count</button>
-          </div>
-          <input
-            type="text"
-            id="cssInput"
-            class="css-input"
-            placeholder="Enter CSS selector or search term..."
-            spellcheck="false"
-          />
+        <div class="css-counter-header">
+          <h2>HTML Counter</h2>
+          <button class="btn btn-primary" id="recountBtn">Re-count All</button>
         </div>
         <div class="css-counter-status" id="cssStatus"></div>
-        <div class="css-counter-results">
-          <h3>Results</h3>
-          <div class="counter-grid" id="counterResults"></div>
+        <div class="search-list" id="searchList"></div>
+        <div class="add-search-row">
+          <button class="btn-icon btn-add" id="addSearchBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add
+          </button>
         </div>
       </div>
     </div>

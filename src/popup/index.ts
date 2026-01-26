@@ -463,27 +463,17 @@ function setupSorting(): void {
 // CSS Counter Feature (searches content page)
 // ============================================
 
-function updateCSSCounterUI(result: CSSSearchResult): void {
-  const counterGrid = document.getElementById('counterResults') as HTMLElement;
-  counterGrid.innerHTML = '';
+interface SearchItem {
+  id: string;
+  query: string;
+  classes: number;
+  textMatches: number;
+}
 
-  const metrics: { key: keyof CSSSearchResult; label: string }[] = [
-    { key: 'classes', label: 'Class Matches' },
-    { key: 'textMatches', label: 'Text Matches' },
-  ];
+let searchItems: SearchItem[] = [];
 
-  metrics.forEach(({ key, label }) => {
-    const value = result[key];
-    if (key === 'query') return;
-
-    const card = document.createElement('div');
-    card.className = 'counter-card';
-    card.innerHTML = `
-      <span class="counter-value">${(value as number).toLocaleString()}</span>
-      <span class="counter-label">${label}</span>
-    `;
-    counterGrid.appendChild(card);
-  });
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 function showCSSStatus(message: string, type: 'error' | 'info'): void {
@@ -497,30 +487,67 @@ function hideCSSStatus(): void {
   statusEl.classList.remove('visible');
 }
 
-async function performCSSSearch(): Promise<void> {
-  const cssInput = document.getElementById('cssInput') as HTMLInputElement;
-  const resultsSection = document.querySelector('.css-counter-results') as HTMLElement;
-  const query = cssInput.value.trim();
+function createSearchItemElement(item: SearchItem): HTMLElement {
+  const div = document.createElement('div');
+  div.className = 'search-item';
+  div.dataset.id = item.id;
+  div.innerHTML = `
+    <input
+      type="text"
+      class="css-input"
+      placeholder="Enter class or text to search..."
+      spellcheck="false"
+      value="${item.query.replace(/"/g, '&quot;')}"
+    />
+    <div class="search-results">
+      <div class="result-badge">
+        <span class="count">${item.classes}</span>
+        <span class="label">classes</span>
+      </div>
+      <div class="result-badge">
+        <span class="count">${item.textMatches}</span>
+        <span class="label">text</span>
+      </div>
+    </div>
+    <button class="btn-icon btn-remove" title="Remove">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  `;
+  return div;
+}
 
-  hideCSSStatus();
+function updateSearchItemResults(id: string, classes: number, textMatches: number): void {
+  const item = searchItems.find(i => i.id === id);
+  if (item) {
+    item.classes = classes;
+    item.textMatches = textMatches;
+  }
 
-  if (query.length === 0) {
-    resultsSection.classList.remove('visible');
+  const el = document.querySelector(`.search-item[data-id="${id}"]`);
+  if (el) {
+    const counts = el.querySelectorAll('.result-badge .count');
+    if (counts[0]) counts[0].textContent = String(classes);
+    if (counts[1]) counts[1].textContent = String(textMatches);
+  }
+}
+
+async function saveSearchItems(): Promise<void> {
+  await chrome.storage.local.set({ searchItems: searchItems.map(i => ({ id: i.id, query: i.query })) });
+}
+
+async function performSearchForItem(id: string, query: string): Promise<void> {
+  if (!query.trim()) {
+    updateSearchItemResults(id, 0, 0);
     return;
   }
 
-  // Get current active tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) {
-    showCSSStatus('No active tab found', 'error');
-    logger.error('No active tab found');
-    return;
-  }
+  if (!tab?.id) return;
 
-  // Check if it's a restricted page
   if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
-    showCSSStatus('Cannot search on browser internal pages', 'error');
-    resultsSection.classList.remove('visible');
     return;
   }
 
@@ -531,76 +558,157 @@ async function performCSSSearch(): Promise<void> {
     });
 
     if (response?.success && response.data) {
-      hideCSSStatus();
-      updateCSSCounterUI(response.data as CSSSearchResult);
-      resultsSection.classList.add('visible');
-    } else {
-      showCSSStatus('No results or invalid response', 'info');
-      resultsSection.classList.remove('visible');
+      const result = response.data as CSSSearchResult;
+      updateSearchItemResults(id, result.classes, result.textMatches);
     }
   } catch {
-    // Content script not loaded - try to inject it
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ['content/index.js'],
       });
-
-      // Wait a moment for script to initialize
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Retry the search
       const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'CSS_SEARCH',
         payload: { query },
       });
 
       if (response?.success && response.data) {
-        hideCSSStatus();
-        updateCSSCounterUI(response.data as CSSSearchResult);
-        resultsSection.classList.add('visible');
+        const result = response.data as CSSSearchResult;
+        updateSearchItemResults(id, result.classes, result.textMatches);
       }
-    } catch (injectError) {
-      const errorMsg = injectError instanceof Error ? injectError.message : JSON.stringify(injectError);
-      showCSSStatus('Cannot access this page', 'error');
-      logger.error('CSS search failed', { error: errorMsg });
-      resultsSection.classList.remove('visible');
+    } catch {
+      // Silently fail for individual items
     }
   }
 }
 
-async function setupCSSCounter(): Promise<void> {
-  const cssInput = document.getElementById('cssInput') as HTMLInputElement;
-  const recountBtn = document.getElementById('recountBtn') as HTMLButtonElement;
+async function performAllSearches(): Promise<void> {
+  hideCSSStatus();
 
-  // Load saved input value
-  const stored = await chrome.storage.local.get('cssCounterInput');
-  if (stored.cssCounterInput) {
-    cssInput.value = stored.cssCounterInput;
-    // Auto-search with saved value
-    performCSSSearch();
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    showCSSStatus('No active tab found', 'error');
+    return;
   }
 
-  // Auto-search on input (debounced) and save to storage
-  let debounceTimer: number;
-  cssInput.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(async () => {
-      await chrome.storage.local.set({ cssCounterInput: cssInput.value });
-      performCSSSearch();
-    }, 500);
+  if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
+    showCSSStatus('Cannot search on browser internal pages', 'error');
+    return;
+  }
+
+  for (const item of searchItems) {
+    await performSearchForItem(item.id, item.query);
+  }
+}
+
+function renderSearchList(): void {
+  const list = document.getElementById('searchList') as HTMLElement;
+  list.innerHTML = '';
+
+  searchItems.forEach(item => {
+    const el = createSearchItemElement(item);
+    list.appendChild(el);
   });
 
-  // Re-count button
+  setupSearchItemListeners();
+}
+
+function setupSearchItemListeners(): void {
+  const list = document.getElementById('searchList') as HTMLElement;
+
+  // Input listeners
+  list.querySelectorAll('.css-input').forEach(input => {
+    let debounceTimer: number;
+    input.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      const itemEl = target.closest('.search-item') as HTMLElement;
+      const id = itemEl.dataset.id!;
+      const query = target.value;
+
+      const item = searchItems.find(i => i.id === id);
+      if (item) item.query = query;
+
+      clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(async () => {
+        await saveSearchItems();
+        performSearchForItem(id, query);
+      }, 500);
+    });
+
+    input.addEventListener('keydown', (e: Event) => {
+      const ke = e as KeyboardEvent;
+      if (ke.key === 'Enter') {
+        const target = ke.target as HTMLInputElement;
+        const itemEl = target.closest('.search-item') as HTMLElement;
+        const id = itemEl.dataset.id!;
+        performSearchForItem(id, target.value);
+      }
+    });
+  });
+
+  // Remove listeners
+  list.querySelectorAll('.btn-remove').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const itemEl = (e.target as HTMLElement).closest('.search-item') as HTMLElement;
+      const id = itemEl.dataset.id!;
+
+      searchItems = searchItems.filter(i => i.id !== id);
+      await saveSearchItems();
+      renderSearchList();
+    });
+  });
+}
+
+function addSearchItem(query = ''): void {
+  const newItem: SearchItem = {
+    id: generateId(),
+    query,
+    classes: 0,
+    textMatches: 0,
+  };
+  searchItems.push(newItem);
+  saveSearchItems();
+  renderSearchList();
+
+  // Focus the new input
+  const list = document.getElementById('searchList') as HTMLElement;
+  const lastInput = list.querySelector('.search-item:last-child .css-input') as HTMLInputElement;
+  if (lastInput) lastInput.focus();
+}
+
+async function setupCSSCounter(): Promise<void> {
+  const addBtn = document.getElementById('addSearchBtn') as HTMLButtonElement;
+  const recountBtn = document.getElementById('recountBtn') as HTMLButtonElement;
+
+  // Load saved search items
+  const stored = await chrome.storage.local.get('searchItems');
+  if (stored.searchItems && Array.isArray(stored.searchItems)) {
+    searchItems = stored.searchItems.map((i: { id: string; query: string }) => ({
+      id: i.id,
+      query: i.query,
+      classes: 0,
+      textMatches: 0,
+    }));
+  }
+
+  // Add default item if empty
+  if (searchItems.length === 0) {
+    searchItems.push({ id: generateId(), query: '', classes: 0, textMatches: 0 });
+  }
+
+  renderSearchList();
+  performAllSearches();
+
+  // Add button
+  addBtn.addEventListener('click', () => {
+    addSearchItem();
+  });
+
+  // Re-count all button
   recountBtn.addEventListener('click', () => {
-    performCSSSearch();
-  });
-
-  // Search on Enter key
-  cssInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      performCSSSearch();
-    }
+    performAllSearches();
   });
 }
 
