@@ -98,8 +98,31 @@ Main automation function that posts a reply to a Facebook comment:
 4. **Scroll to comment** - `scrollIntoView({ behavior: 'smooth', block: 'center' })`
 5. **Click Reply button** - Search for buttons with text "Reply", "Phản hồi", or "Trả lời"
 6. **Find input field** - Locate `contenteditable` textbox using various selectors
-7. **Type message** - Use `execCommand('insertText')` for contenteditable
-8. **Submit** - Click submit button or fallback to Enter key
+7. **Type message** - Append text after existing @mention tag (see Text Insertion below)
+8. **Submit** - Click submit button once, or fallback to Enter key
+
+**Text Insertion Logic:**
+
+When clicking "Reply" on Facebook, an @mention tag is automatically inserted (e.g., `@John Doe`). The extension preserves this tag and appends the message after it:
+
+```typescript
+// Move cursor to end of existing content (after @mention if present)
+const selection = window.getSelection();
+const range = document.createRange();
+range.selectNodeContents(input);
+range.collapse(false); // false = collapse to end
+selection?.removeAllRanges();
+selection?.addRange(range);
+
+// Add space before message if @mention exists
+const existingText = input.textContent?.trim() || '';
+const textToInsert = existingText ? ' ' + message : message;
+
+// Insert at cursor position (end)
+document.execCommand('insertText', false, textToInsert);
+```
+
+**Result:** `@John Doe your message here` (not `your message here@John Doe`)
 
 **Reply Button Detection:**
 - Text matching: `reply`, `phản hồi`, `trả lời`
