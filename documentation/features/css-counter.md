@@ -1,8 +1,8 @@
-# CSS Counter
+# HTML Counter
 
 ## Overview
 
-CSS Counter is a tool that searches the current webpage for CSS-related elements including selectors, classes, IDs, inline styles, and stylesheet rules. It communicates with the content script to analyze the active tab's DOM and stylesheets.
+HTML Counter is a tool that searches the current webpage for exact class matches and text matches. It supports multiple search queries simultaneously, with each search item displaying results inline.
 
 ## Architecture
 
@@ -16,16 +16,15 @@ CSS Counter is a tool that searches the current webpage for CSS-related elements
          │  { query: string }         │
          ├───────────────────────────►│
          │                            │ searchCSS()
-         │                            │ - querySelector
-         │                            │ - classList scan
-         │                            │ - stylesheet rules
+         │                            │ - classList.contains()
+         │                            │ - direct text match
          │  CSSSearchResult           │
          │◄───────────────────────────┤
          │                            │
          ▼                            │
 ┌─────────────────┐                   │
 │ Display Results │                   │
-│ (count > 0 only)│                   │
+│ (inline badges) │                   │
 └─────────────────┘                   │
 ```
 
@@ -37,48 +36,25 @@ CSS Counter is a tool that searches the current webpage for CSS-related elements
 | Field | Type | Description |
 |-------|------|-------------|
 | `query` | `string` | The search query entered by user |
-| `elements` | `number` | Elements matching as CSS selector |
-| `classes` | `number` | Unique class names containing query |
-| `ids` | `number` | Unique IDs containing query |
-| `inlineStyles` | `number` | Elements with inline styles containing query |
-| `stylesheetRules` | `number` | CSS rules containing query in text |
-| `computedMatches` | `number` | Elements with computed style properties matching query |
+| `classes` | `number` | Elements with exact class match |
+| `textMatches` | `number` | Elements with exact text content match |
 
 ### Content Script (`src/content/index.ts`)
 
 #### searchCSS(query: string)
 
-Performs comprehensive CSS search on the current page:
+Performs exact match search on the current page:
 
-1. **Element Selector Match**
-   - Attempts `document.querySelectorAll(query)`
-   - Counts matching elements
-   - Gracefully handles invalid selectors
+1. **Class Match**
+   - Uses `classList.contains()` for exact matching
+   - If query contains multiple classes (space-separated), checks if element has ALL classes
+   - Single class: exact match only
+   - Example: searching `btn primary` finds elements with both `btn` AND `primary` classes
 
-2. **Class Name Search**
-   - Scans all elements' `classList`
-   - Case-insensitive substring match
-   - Returns unique class count
-
-3. **ID Search**
-   - Scans all elements' `id` attribute
-   - Case-insensitive substring match
-   - Returns unique ID count
-
-4. **Inline Style Search**
-   - Checks `style` attribute of all elements
-   - Case-insensitive substring match
-   - Counts elements with matching inline styles
-
-5. **Stylesheet Rules Search**
-   - Iterates through `document.styleSheets`
-   - Searches `cssText` of each rule
-   - Skips cross-origin stylesheets (security restriction)
-
-6. **Computed Style Search**
-   - Samples common elements (body, div, span, p, a, h1-h3)
-   - Searches property names in computed styles
-   - Counts elements with matching properties
+2. **Text Match**
+   - Searches direct text content only (not inherited from children)
+   - Uses exact match comparison (`===`)
+   - Trims whitespace before comparison
 
 #### Message Handler
 
@@ -97,56 +73,68 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 #### Layout
 
 ```
-┌────────────────────────────────────────────────┐
-│ Tabs: [Logging] [CSS Counter] [Tab 3]          │
-├────────────────────────────────────────────────┤
-│                                                │
-│  CSS Counter                                   │
-│  Search for CSS classes, IDs, selectors...    │
-│                                                │
-│  ┌──────────────────────────────────────────┐ │
-│  │ Enter CSS selector or search term...     │ │
-│  └──────────────────────────────────────────┘ │
-│                                                │
-│  Results:                                      │
-│  ┌────────────────┬────────────────┐          │
-│  │ Elements: 5    │ Classes: 12    │          │
-│  ├────────────────┼────────────────┤          │
-│  │ IDs: 2         │ Inline: 3      │          │
-│  ├────────────────┼────────────────┤          │
-│  │ Rules: 8       │ Computed: 4    │          │
-│  └────────────────┴────────────────┘          │
-│                                                │
-│  Status: Found results                         │
-│                                                │
-└────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│ Tabs: [Logging] [HTML Counter] [Tab 3]                     │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  HTML Counter                          [Re-count All]      │
+│                                                            │
+│  ┌──────────────────────────┬─────────────────────┬───┐   │
+│  │ search-term-1            │ 5 classes │ 2 text  │ X │   │
+│  └──────────────────────────┴─────────────────────┴───┘   │
+│  ┌──────────────────────────┬─────────────────────┬───┐   │
+│  │ search-term-2            │ 0 classes │ 0 text  │ X │   │
+│  └──────────────────────────┴─────────────────────┴───┘   │
+│  ┌──────────────────────────┬─────────────────────┬───┐   │
+│  │ search-term-3            │ 3 classes │ 1 text  │ X │   │
+│  └──────────────────────────┴─────────────────────┴───┘   │
+│                                                            │
+│  [+ Add]                                                   │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 #### Features
 
-**Input Field:**
-- Single-line text input
-- Placeholder: "Enter CSS selector or search term..."
-- Triggers search on input (debounced 300ms)
-- Persisted to `chrome.storage.local`
+**Multiple Search Items:**
+- Each search has its own input field and inline results
+- Add new searches with the "+ Add" button
+- Remove individual searches with the "X" button
+- All searches persist to storage
 
-**Results Grid:**
-- 2-column responsive grid
-- Only shows results with count > 0
-- Result types:
-  - **Elements:** Direct selector matches
-  - **Classes:** Matching class names
-  - **IDs:** Matching element IDs
-  - **Inline Styles:** Elements with matching inline styles
-  - **Stylesheet Rules:** CSS rules containing query
-  - **Computed Styles:** Elements with matching computed properties
+**Search Input:**
+- Single-line text input per search item
+- Placeholder: "Enter class or text to search..."
+- Triggers search on input (debounced 500ms)
+- Triggers search on Enter key
+
+**Inline Results:**
+- Results displayed as badges next to input
+- Shows `classes` count and `text` count
+- Updates automatically on input change
+
+**Re-count All Button:**
+- Refreshes all search results
+- Useful when page content changes
 
 **Status Messages:**
-- "Enter a search term..." - Empty input
-- "Searching..." - During search
-- "Found results" - Results returned (any count > 0)
-- "No matches found" - All counts are 0
-- Error messages for failures
+- "No active tab found" - No active tab
+- "Cannot search on browser internal pages" - chrome:// or about: pages
+
+## Storage
+
+Search items are persisted to `chrome.storage.local`:
+
+```typescript
+// Key: 'searchItems'
+// Value: Array<{ id: string, query: string }>
+chrome.storage.local.set({
+  searchItems: searchItems.map(i => ({ id: i.id, query: i.query }))
+});
+
+// Restored on popup open
+const { searchItems } = await chrome.storage.local.get('searchItems');
+```
 
 ## Permissions
 
@@ -170,73 +158,27 @@ Required in `manifest.json`:
 
 ### Extension Context Invalidated
 
-When the extension is reloaded, old content scripts become orphaned. The logger handles this gracefully:
-
-```typescript
-// Check context validity before messaging
-if (!chrome.runtime?.id) {
-  return; // Silently skip
-}
-
-// Suppress lastError in callbacks
-chrome.runtime.sendMessage(msg, () => {
-  void chrome.runtime.lastError;
-});
-```
+When the extension is reloaded, old content scripts become orphaned. Handled gracefully by checking context validity.
 
 **User Action Required:** Refresh the webpage to load the new content script.
 
 ### Content Script Not Loaded
 
-If the content script is not present (e.g., new tab opened after extension install):
-
-```typescript
-try {
-  // Try normal message
-  response = await chrome.tabs.sendMessage(tabId, message);
-} catch {
-  // Inject content script programmatically
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['content/index.js']
-  });
-  // Retry message
-  response = await chrome.tabs.sendMessage(tabId, message);
-}
-```
-
-### Cross-Origin Stylesheets
-
-External stylesheets from different origins cannot be read due to browser security. These are silently skipped in the search.
-
-## Storage
-
-Search input is persisted to `chrome.storage.local`:
-
-```typescript
-// Key: 'cssSearchQuery'
-chrome.storage.local.set({ cssSearchQuery: query });
-
-// Restored on popup open
-const { cssSearchQuery } = await chrome.storage.local.get('cssSearchQuery');
-```
+If the content script is not present, it will be injected programmatically before retrying the search.
 
 ## Usage Examples
 
 | Search Query | What It Finds |
 |--------------|---------------|
-| `.btn` | Elements matching `.btn` selector, classes containing "btn" |
-| `#header` | Element with id="header", IDs containing "header" |
-| `flex` | Classes/IDs with "flex", inline styles with "flex", CSS rules with "flex" |
-| `color` | CSS properties containing "color" in stylesheets and computed styles |
-| `div.container` | Elements matching compound selector |
+| `btn` | Elements with exact class `btn` |
+| `btn primary` | Elements with BOTH `btn` AND `primary` classes |
+| `Hello World` | Elements with exact text content "Hello World" |
+| `css-abc123-Container` | Elements with exact class `css-abc123-Container` |
 
 ## Future Enhancements
 
 - [ ] Highlight matching elements on page
-- [ ] Show matched class/ID names list
+- [ ] Partial/fuzzy matching option
 - [ ] Export results
-- [ ] Search history
-- [ ] RegEx support
-- [ ] Specificity calculator
-- [ ] CSS rule preview
+- [ ] Drag to reorder search items
+- [ ] Search templates/presets
