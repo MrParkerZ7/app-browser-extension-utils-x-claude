@@ -26,17 +26,18 @@ export async function startFBAutoReply(): Promise<void> {
   const message = messageEl.value.trim();
   const delayMin = parseInt(delayMinEl.value, 10) || 1500;
   const delayMax = parseInt(delayMaxEl.value, 10) || 3000;
-  const doReply = fbActions.reply;
+  const steps = fbActions.steps;
   const doClose = fbActions.close;
 
   // Validate: at least one action must be selected
-  if (!doReply && !doClose) {
+  const hasAnyStep = steps.clickReply || steps.inputText || steps.submitReply;
+  if (!hasAnyStep && !doClose) {
     showFBStatus('Please select at least one action.', 'error');
     return;
   }
 
-  // Only require message for reply action
-  if (doReply && !message) {
+  // Only require message if inputText step is selected
+  if (steps.inputText && !message) {
     showFBStatus('Please enter a reply message.', 'error');
     return;
   }
@@ -45,7 +46,7 @@ export async function startFBAutoReply(): Promise<void> {
     message,
     delayMin,
     delayMax,
-    doReply,
+    steps,
     doClose,
   };
 

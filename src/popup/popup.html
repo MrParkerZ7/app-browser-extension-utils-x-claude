@@ -140,12 +140,26 @@
         <p class="fb-reply-desc">Perform actions on Facebook comment tabs (URLs with comment_id).</p>
 
         <div class="fb-reply-settings">
-          <label class="fb-reply-label">Actions to perform:</label>
+          <label class="fb-reply-label">Reply steps to perform:</label>
           <div class="fb-action-checkboxes">
             <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbActionReply" checked />
-              <span>Reply to comment</span>
+              <input type="checkbox" id="fbStepClickReply" checked />
+              <span>Click Reply button</span>
             </label>
+            <label class="fb-action-checkbox">
+              <input type="checkbox" id="fbStepInputText" checked />
+              <span>Input text</span>
+            </label>
+            <label class="fb-action-checkbox">
+              <input type="checkbox" id="fbStepSubmit" checked />
+              <span>Submit reply</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="fb-reply-settings">
+          <label class="fb-reply-label">After completion:</label>
+          <div class="fb-action-checkboxes">
             <label class="fb-action-checkbox">
               <input type="checkbox" id="fbActionClose" checked />
               <span>Close tab</span>

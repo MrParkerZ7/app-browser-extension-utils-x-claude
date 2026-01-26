@@ -83,16 +83,17 @@ async function scanFBTabs(): Promise<FBTab[]> {
 }
 
 async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
-  const { message, delayMin, delayMax, doReply, doClose } = config;
+  const { message, delayMin, delayMax, steps, doClose } = config;
 
   // Validate: at least one action must be selected
-  if (!doReply && !doClose) {
+  const hasAnyStep = steps.clickReply || steps.inputText || steps.submitReply;
+  if (!hasAnyStep && !doClose) {
     logger.error('FB Auto Reply: No action selected');
     return;
   }
 
-  // Only require message for reply action
-  if (doReply && !message.trim()) {
+  // Only require message if inputText step is selected
+  if (steps.inputText && !message.trim()) {
     logger.error('FB Auto Reply: No message provided');
     return;
   }
@@ -104,12 +105,12 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
   fbState.completed = 0;
   fbState.total = selectedPendingTabs.length;
 
-  const actionDesc = doReply && doClose ? 'Reply & Close' : doReply ? 'Reply' : 'Close Tabs';
+  const actionDesc = hasAnyStep && doClose ? 'Reply & Close' : hasAnyStep ? 'Reply' : 'Close Tabs';
 
   logger.info(`FB Auto Reply: Starting ${actionDesc}`, {
-    doReply,
+    steps,
     doClose,
-    message: doReply ? message : undefined,
+    message: steps.inputText ? message : undefined,
     delayRange: `${delayMin}-${delayMax}ms`,
     totalTabs: fbState.total,
   });
@@ -124,7 +125,7 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
     const tabIndex = selectedPendingTabs.indexOf(tab) + 1;
     logger.info(`FB Auto Reply: Processing tab ${tabIndex}/${fbState.total}`, {
-      doReply,
+      steps,
       doClose,
       tabId: tab.id,
       title: tab.title,
@@ -138,7 +139,7 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
     try {
       let actionSuccess = true;
-      const needsTabSwitch = doReply;
+      const needsTabSwitch = hasAnyStep;
 
       // Switch to tab and inject script if needed for reply
       if (needsTabSwitch) {
@@ -172,15 +173,15 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Reply action
-      if (doReply && actionSuccess) {
+      // Reply action (if any step is selected)
+      if (hasAnyStep && actionSuccess) {
         let response = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, message, attempt });
+            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, message, attempt });
             response = await chrome.tabs.sendMessage(tab.id, {
               type: 'FB_AUTO_REPLY',
-              payload: { message },
+              payload: { message, steps },
             });
             break;
           } catch (sendError) {
@@ -217,7 +218,7 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
       // Close action (only if previous actions succeeded or not selected)
       if (doClose && actionSuccess) {
-        if (doReply) {
+        if (hasAnyStep) {
           // Wait a bit after actions before closing
           await new Promise(resolve => setTimeout(resolve, 1000));
         }

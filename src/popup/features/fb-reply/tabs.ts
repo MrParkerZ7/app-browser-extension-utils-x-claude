@@ -31,14 +31,10 @@ export function updateFBProgress(completed: number, total: number): void {
 
 export function updateFBActionUI(): void {
   const messageSettings = document.getElementById('fbMessageSettings') as HTMLElement;
-  const replyCheckbox = document.getElementById('fbActionReply') as HTMLInputElement;
-  const closeCheckbox = document.getElementById('fbActionClose') as HTMLInputElement;
+  const stepInputText = document.getElementById('fbStepInputText') as HTMLInputElement;
 
-  fbActions.reply = replyCheckbox.checked;
-  fbActions.close = closeCheckbox.checked;
-
-  // Show message input only when reply is checked
-  if (fbActions.reply) {
+  // Show message input only when input text step is checked
+  if (stepInputText?.checked) {
     messageSettings.classList.remove('hidden');
   } else {
     messageSettings.classList.add('hidden');

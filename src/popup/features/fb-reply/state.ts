@@ -1,9 +1,9 @@
 // FB Auto Reply feature state management
-import { FBAutoReplyState } from '../../../shared/types';
+import { FBAutoReplyState, FBReplySteps } from '../../../shared/types';
 import { renderFBTabs, updateFBButtonStates, updateFBProgress, showFBStatus } from './tabs';
 
 export interface FBActions {
-  reply: boolean;
+  steps: FBReplySteps;
   close: boolean;
 }
 
@@ -15,15 +15,19 @@ export let fbState: FBAutoReplyState = {
   total: 0,
 };
 
-export let fbActions: FBActions = { reply: true, close: true };
+export let fbActions: FBActions = {
+  steps: { clickReply: true, inputText: true, submitReply: true },
+  close: true,
+};
 
 export function setFBActions(actions: FBActions): void {
   fbActions = actions;
 }
 
 export function getActionLabel(): string {
-  if (fbActions.reply && fbActions.close) return 'Reply & Close';
-  if (fbActions.reply) return 'Reply';
+  const hasAnyStep = fbActions.steps.clickReply || fbActions.steps.inputText || fbActions.steps.submitReply;
+  if (hasAnyStep && fbActions.close) return 'Reply & Close';
+  if (hasAnyStep) return 'Reply';
   if (fbActions.close) return 'Close Tabs';
   return 'Start';
 }
