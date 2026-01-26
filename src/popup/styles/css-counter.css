@@ -1,0 +1,116 @@
+/* CSS Counter (HTML Counter) styles */
+.css-counter-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.css-counter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.css-counter-header h2 {
+  font-size: 16px;
+  color: #e0e0e0;
+  margin: 0;
+}
+
+.css-counter-status {
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  display: none;
+}
+
+.css-counter-status.visible {
+  display: block;
+}
+
+.css-counter-status.error {
+  background: #3d0a0a;
+  color: #ff6b6b;
+  border: 1px solid #5c1e1e;
+}
+
+.css-counter-status.info {
+  background: #0a3d3d;
+  color: #64ffda;
+  border: 1px solid #1a5a4a;
+}
+
+/* Search list */
+.search-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.search-item .css-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: #0d1b2a;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.search-item .css-input:focus {
+  border-color: #64ffda;
+}
+
+.search-item .css-input::placeholder {
+  color: #5a6a7a;
+}
+
+/* Search results badges */
+.search-results {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 200px;
+}
+
+.result-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #0d1b2a;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.result-badge .count {
+  font-weight: 600;
+  color: #64ffda;
+}
+
+.result-badge .label {
+  color: #8892b0;
+}
+
+/* Add search row */
+.add-search-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
+}

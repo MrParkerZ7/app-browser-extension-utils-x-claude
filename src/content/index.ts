@@ -1,6 +1,7 @@
 // Content script - runs in the context of web pages
 import { createLogger } from '../shared/logger';
 import { CSSSearchResult, FBReplyResult } from '../shared/types';
+import { wait } from '../shared/utils';
 
 // Prevent multiple initializations when script is injected multiple times
 const windowWithFlag = window as unknown as { __contentScriptInitialized?: boolean };
@@ -11,11 +12,6 @@ windowWithFlag.__contentScriptInitialized = true;
 if (!alreadyInitialized) {
 
 const logger = createLogger('content');
-
-// Helper to wait
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 // Example: Send message to background script
 function sendMessageToBackground(message: { type: string; payload?: unknown }) {

@@ -1,18 +1,15 @@
 // Background service worker
 import { LogEntry, LogState, MessageType, MessageResponse, FBTab, FBAutoReplyState, FBAutoReplyConfig } from '../shared/types';
 import { createLogger } from '../shared/logger';
+import { generateId, getRandomDelay } from '../shared/utils';
 
 const logger = createLogger('background');
 
 // In-memory log storage
 const logState: LogState = {
   logs: [],
-  maxLogs: 1000, // Keep last 1000 logs
+  maxLogs: 1000,
 };
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
 
 function addLog(entry: Omit<LogEntry, 'id'>): void {
   const logEntry: LogEntry = {
@@ -51,10 +48,6 @@ let fbAbort = false;
 
 function isFacebookCommentUrl(url: string): boolean {
   return url.includes('facebook.com') && url.includes('comment_id');
-}
-
-function getRandomDelay(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function broadcastState(): void {

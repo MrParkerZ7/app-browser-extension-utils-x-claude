@@ -10,10 +10,6 @@ class Logger {
     this.isBackground = source === 'background';
   }
 
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
   private sendLog(level: LogLevel, message: string, data?: unknown): void {
     // Check if extension context is valid before doing anything
     if (!this.isBackground && (typeof chrome === 'undefined' || !chrome.runtime?.id)) {
