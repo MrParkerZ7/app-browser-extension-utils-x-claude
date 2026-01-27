@@ -509,60 +509,6 @@ async function runNotificationCheck(): Promise<void> {
   }
 }
 
-async function runMarkAllAsRead(): Promise<MessageResponse> {
-  logger.info('FB Notification Listener: Marking all as read');
-
-  try {
-    // Find or open the Facebook notifications page
-    const notifUrl = 'https://www.facebook.com/notifications';
-    let notifTab: chrome.tabs.Tab | null = null;
-
-    // Look for existing notifications tab
-    const existingTabs = await chrome.tabs.query({ url: '*://www.facebook.com/notifications*' });
-    if (existingTabs.length > 0) {
-      notifTab = existingTabs[0];
-    } else {
-      // Open new tab
-      notifTab = await chrome.tabs.create({ url: notifUrl, active: false });
-    }
-
-    if (!notifTab?.id) {
-      throw new Error('Could not open notifications tab');
-    }
-
-    // Wait for tab to load
-    await waitForTabLoad(notifTab.id);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Inject content script
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: notifTab.id },
-        files: ['content/index.js'],
-      });
-    } catch {
-      // Script might already be injected
-    }
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Send mark all as read request to content script
-    const result = await chrome.tabs.sendMessage(notifTab.id, {
-      type: 'FB_NOTIF_CLICK_MARK_ALL_READ',
-    });
-
-    if (!result?.success) {
-      throw new Error(result?.error || 'Failed to mark all as read');
-    }
-
-    logger.info('FB Notification Listener: Marked all as read');
-    return { success: true };
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('FB Notification Listener: Mark all as read failed', { error: errMsg });
-    return { success: false, error: errMsg };
-  }
-}
-
 async function waitForTabLoad(tabId: number, timeout = 30000): Promise<void> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
@@ -695,12 +641,6 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
     case 'FB_NOTIF_CHECK_NOW':
       runNotificationCheck().then(() => {
         sendResponse({ success: true } as MessageResponse);
-      });
-      return true;
-
-    case 'FB_NOTIF_MARK_ALL_READ':
-      runMarkAllAsRead().then(result => {
-        sendResponse(result);
       });
       return true;
 

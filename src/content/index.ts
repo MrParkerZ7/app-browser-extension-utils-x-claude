@@ -1399,15 +1399,6 @@ if (!alreadyInitialized) {
       return true; // Keep channel open for async response
     }
 
-    if (message.type === 'FB_NOTIF_CLICK_MARK_ALL_READ') {
-      clickMarkAllAsRead().then(() => {
-        sendResponse({ success: true });
-      }).catch(error => {
-        sendResponse({ success: false, error: error.message });
-      });
-      return true; // Keep channel open for async response
-    }
-
     return true;
   });
 

@@ -50,18 +50,6 @@ export async function checkNow(): Promise<void> {
   }
 }
 
-export async function markAllRead(): Promise<void> {
-  showStatus('Marking all as read...', 'info');
-
-  const response = await chrome.runtime.sendMessage({ type: 'FB_NOTIF_MARK_ALL_READ' });
-
-  if (response?.success) {
-    showStatus('Marked all as read', 'info');
-  } else {
-    showStatus(response?.error || 'Failed to mark all as read', 'error');
-  }
-}
-
 export async function saveConfig(): Promise<void> {
   const config = getConfigFromUI();
 

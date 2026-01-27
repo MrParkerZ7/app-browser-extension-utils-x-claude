@@ -5,7 +5,6 @@ import {
   startNotifListener,
   stopNotifListener,
   checkNow,
-  markAllRead,
   saveConfig,
   setupNotifStateListener,
   getInitialNotifState,
@@ -16,7 +15,6 @@ export async function setupNotificationListener(): Promise<void> {
   const startBtn = document.getElementById('fbNotifStartBtn') as HTMLButtonElement;
   const stopBtn = document.getElementById('fbNotifStopBtn') as HTMLButtonElement;
   const checkNowBtn = document.getElementById('fbNotifCheckNowBtn') as HTMLButtonElement;
-  const markAllReadBtn = document.getElementById('fbNotifMarkAllReadBtn') as HTMLButtonElement;
 
   // Filter checkboxes
   const mentionsEl = document.getElementById('fbNotifFilterMentions') as HTMLInputElement;
@@ -72,10 +70,6 @@ export async function setupNotificationListener(): Promise<void> {
 
   if (checkNowBtn) {
     checkNowBtn.addEventListener('click', checkNow);
-  }
-
-  if (markAllReadBtn) {
-    markAllReadBtn.addEventListener('click', markAllRead);
   }
 
   // Setup config change handlers - auto-save on change
