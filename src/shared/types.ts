@@ -45,6 +45,7 @@ export interface FBNotificationListenerConfig {
   filters: FBNotificationFilter;
   autoStartReply: boolean;
   expandPreviousNotifications: boolean;
+  markAllAsRead: boolean;
 }
 
 export interface FBNotificationListenerState {

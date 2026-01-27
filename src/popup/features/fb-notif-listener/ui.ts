@@ -92,6 +92,7 @@ export function loadConfigToUI(): void {
   const allCommentsEl = document.getElementById('fbNotifFilterAllComments') as HTMLInputElement;
   const autoReplyEl = document.getElementById('fbNotifAutoReply') as HTMLInputElement;
   const expandPrevEl = document.getElementById('fbNotifExpandPrevious') as HTMLInputElement;
+  const markAllReadEl = document.getElementById('fbNotifMarkAllRead') as HTMLInputElement;
 
   if (intervalEl) intervalEl.value = String(notifConfig.intervalSeconds);
   if (mentionsEl) mentionsEl.checked = notifConfig.filters.mentionsName;
@@ -99,6 +100,7 @@ export function loadConfigToUI(): void {
   if (allCommentsEl) allCommentsEl.checked = notifConfig.filters.allCommentNotifications;
   if (autoReplyEl) autoReplyEl.checked = notifConfig.autoStartReply;
   if (expandPrevEl) expandPrevEl.checked = notifConfig.expandPreviousNotifications;
+  if (markAllReadEl) markAllReadEl.checked = notifConfig.markAllAsRead;
 }
 
 export function getConfigFromUI(): typeof notifConfig {
@@ -108,6 +110,7 @@ export function getConfigFromUI(): typeof notifConfig {
   const allCommentsEl = document.getElementById('fbNotifFilterAllComments') as HTMLInputElement;
   const autoReplyEl = document.getElementById('fbNotifAutoReply') as HTMLInputElement;
   const expandPrevEl = document.getElementById('fbNotifExpandPrevious') as HTMLInputElement;
+  const markAllReadEl = document.getElementById('fbNotifMarkAllRead') as HTMLInputElement;
 
   return {
     enabled: notifState.running,
@@ -119,5 +122,6 @@ export function getConfigFromUI(): typeof notifConfig {
     },
     autoStartReply: autoReplyEl?.checked ?? false,
     expandPreviousNotifications: expandPrevEl?.checked ?? false,
+    markAllAsRead: markAllReadEl?.checked ?? false,
   };
 }

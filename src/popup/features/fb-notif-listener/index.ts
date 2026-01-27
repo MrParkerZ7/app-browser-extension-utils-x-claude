@@ -24,6 +24,7 @@ export async function setupNotificationListener(): Promise<void> {
   // Option checkboxes
   const autoReplyEl = document.getElementById('fbNotifAutoReply') as HTMLInputElement;
   const expandPrevEl = document.getElementById('fbNotifExpandPrevious') as HTMLInputElement;
+  const markAllReadEl = document.getElementById('fbNotifMarkAllRead') as HTMLInputElement;
 
   // Interval input
   const intervalEl = document.getElementById('fbNotifInterval') as HTMLInputElement;
@@ -72,7 +73,7 @@ export async function setupNotificationListener(): Promise<void> {
   }
 
   // Setup config change handlers - auto-save on change
-  const configInputs = [mentionsEl, repliesEl, allCommentsEl, autoReplyEl, expandPrevEl];
+  const configInputs = [mentionsEl, repliesEl, allCommentsEl, autoReplyEl, expandPrevEl, markAllReadEl];
   configInputs.forEach(el => {
     if (el) {
       el.addEventListener('change', saveConfig);

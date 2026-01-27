@@ -16,6 +16,7 @@ export const DEFAULT_CONFIG: FBNotificationListenerConfig = {
   },
   autoStartReply: false,
   expandPreviousNotifications: false,
+  markAllAsRead: false,
 };
 
 // Current state

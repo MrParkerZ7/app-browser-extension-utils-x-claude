@@ -357,6 +357,7 @@ let notifConfig: FBNotificationListenerConfig = {
   },
   autoStartReply: false,
   expandPreviousNotifications: false,
+  markAllAsRead: false,
 };
 
 function broadcastNotifState(): void {
@@ -457,6 +458,7 @@ async function runNotificationCheck(): Promise<void> {
       payload: {
         filters: notifConfig.filters,
         expandPrevious: notifConfig.expandPreviousNotifications,
+        markAllAsRead: notifConfig.markAllAsRead,
       },
     })) as FBNotificationScanResult;
 

@@ -1128,6 +1128,55 @@ if (!alreadyInitialized) {
     await wait(500);
   }
 
+  async function clickMarkAllAsRead(): Promise<void> {
+    logger.info('FB Notifications: Looking for Mark all as read button');
+
+    // Common aria-labels for the mark all as read button
+    const ariaLabels = [
+      'Mark all as read',
+      'Đánh dấu tất cả là đã đọc',
+      'Đánh dấu tất cả đã đọc',
+    ];
+
+    // Method 1: Find by aria-label
+    for (const ariaLabel of ariaLabels) {
+      const button = document.querySelector(
+        `[role="button"][aria-label="${ariaLabel}"]`
+      ) as HTMLElement;
+
+      if (button) {
+        console.log(`[FB Notif] Found Mark all as read button via aria-label: ${ariaLabel}`);
+        button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await wait(300);
+        button.click();
+        logger.info('FB Notifications: Clicked Mark all as read button');
+        return;
+      }
+    }
+
+    // Method 2: Find by text content
+    const buttonTexts = ['mark all as read', 'đánh dấu tất cả là đã đọc', 'đánh dấu tất cả đã đọc'];
+    const buttons = document.querySelectorAll('[role="button"]');
+
+    for (const el of Array.from(buttons)) {
+      const htmlEl = el as HTMLElement;
+      const text = htmlEl.innerText?.toLowerCase().trim() || '';
+
+      for (const searchText of buttonTexts) {
+        if (text === searchText || text.includes(searchText)) {
+          console.log(`[FB Notif] Found Mark all as read button via text: ${text}`);
+          htmlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await wait(300);
+          htmlEl.click();
+          logger.info('FB Notifications: Clicked Mark all as read button');
+          return;
+        }
+      }
+    }
+
+    logger.warn('FB Notifications: Mark all as read button not found');
+  }
+
   function parseNotificationItem(element: HTMLElement): FBNotificationItem | null {
     // Find the notification link
     const link = element.querySelector('a[href*="comment_id"], a[href*="notif_id"]');
@@ -1194,9 +1243,10 @@ if (!alreadyInitialized) {
 
   async function scanNotificationsPage(
     filters: FBNotificationFilter,
-    expandPrevious: boolean
+    expandPrevious: boolean,
+    markAllAsRead: boolean = false
   ): Promise<FBNotificationScanResult> {
-    logger.info('FB Notifications: Starting scan', { filters, expandPrevious });
+    logger.info('FB Notifications: Starting scan', { filters, expandPrevious, markAllAsRead });
 
     try {
       // Check if we're on the notifications page
@@ -1214,6 +1264,12 @@ if (!alreadyInitialized) {
       // Optionally expand previous notifications
       if (expandPrevious) {
         await expandPreviousNotifications();
+        await wait(1000);
+      }
+
+      // Optionally mark all as read
+      if (markAllAsRead) {
+        await clickMarkAllAsRead();
         await wait(1000);
       }
 
@@ -1335,8 +1391,9 @@ if (!alreadyInitialized) {
         allCommentNotifications: false,
       };
       const expandPrevious = message.payload?.expandPrevious || false;
+      const markAllAsRead = message.payload?.markAllAsRead || false;
 
-      scanNotificationsPage(filters, expandPrevious).then(result => {
+      scanNotificationsPage(filters, expandPrevious, markAllAsRead).then(result => {
         sendResponse(result);
       });
       return true; // Keep channel open for async response
