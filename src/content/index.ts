@@ -1043,17 +1043,22 @@ if (!alreadyInitialized) {
     }
 
     if (!foundButton) {
-      logger.warn('FB Notifications: No expand button found, trying scroll method');
+      console.log('[FB Notif] No expand button found, trying scroll method');
 
       // Method 3: Just scroll down to load more via infinite scroll
       for (let i = 0; i < 5; i++) {
-        window.scrollTo(0, document.body.scrollHeight);
-        await wait(1000);
-        logger.debug(`FB Notifications: Scroll attempt ${i + 1}/5`);
+        const scrollAmount = window.innerHeight;
+        window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+        document.documentElement.scrollTop += scrollAmount;
+        document.body.scrollTop += scrollAmount;
+        console.log(`[FB Notif] Fallback scroll ${i + 1}/5, scrollY: ${window.scrollY}`);
+        await wait(1500);
       }
 
       // Scroll back to top
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     }
 
     logger.info('FB Notifications: Expansion process complete');
@@ -1112,19 +1117,33 @@ if (!alreadyInitialized) {
     // Also try direct click
     button.click();
 
-    console.log('[FB Notif] Click sequence completed, waiting 2s...');
-    await wait(2000);
+    console.log('[FB Notif] Click sequence completed, waiting 3s for content to load...');
+    await wait(3000);
 
     // Scroll down 5 times to load more notifications
     console.log('[FB Notif] Starting scroll down 5 times');
     for (let i = 0; i < 5; i++) {
-      window.scrollTo(0, document.body.scrollHeight);
-      console.log(`[FB Notif] Scroll ${i + 1}/5`);
-      await wait(1000);
+      // Try multiple scroll methods
+      const scrollAmount = window.innerHeight;
+
+      // Method 1: scrollBy
+      window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+
+      // Method 2: documentElement
+      document.documentElement.scrollTop += scrollAmount;
+
+      // Method 3: body
+      document.body.scrollTop += scrollAmount;
+
+      console.log(`[FB Notif] Scroll ${i + 1}/5, scrollY: ${window.scrollY}`);
+      await wait(1500);
     }
 
+    console.log('[FB Notif] Scrolling back to top');
     // Scroll back to top for scanning
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
     await wait(500);
   }
 
