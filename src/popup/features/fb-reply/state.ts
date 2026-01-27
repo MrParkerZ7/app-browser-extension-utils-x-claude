@@ -4,6 +4,7 @@ import { renderFBTabs, updateFBButtonStates, updateFBProgress, showFBStatus } fr
 
 export interface FBActions {
   steps: FBReplySteps;
+  imageUrls: string[];
   close: boolean;
 }
 
@@ -16,7 +17,8 @@ export let fbState: FBAutoReplyState = {
 };
 
 export let fbActions: FBActions = {
-  steps: { clickReply: true, inputText: true, submitReply: true },
+  steps: { clickReply: true, inputText: true, uploadImages: false, submitReply: true },
+  imageUrls: [],
   close: true,
 };
 
@@ -25,7 +27,7 @@ export function setFBActions(actions: FBActions): void {
 }
 
 export function getActionLabel(): string {
-  const hasAnyStep = fbActions.steps.clickReply || fbActions.steps.inputText || fbActions.steps.submitReply;
+  const hasAnyStep = fbActions.steps.clickReply || fbActions.steps.inputText || fbActions.steps.uploadImages || fbActions.steps.submitReply;
   if (hasAnyStep && fbActions.close) return 'Reply & Close';
   if (hasAnyStep) return 'Reply';
   if (fbActions.close) return 'Close Tabs';

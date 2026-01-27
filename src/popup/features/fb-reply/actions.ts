@@ -27,10 +27,11 @@ export async function startFBAutoReply(): Promise<void> {
   const delayMin = parseInt(delayMinEl.value, 10) || 1500;
   const delayMax = parseInt(delayMaxEl.value, 10) || 3000;
   const steps = fbActions.steps;
+  const imageUrls = fbActions.imageUrls.filter(url => url.trim() !== '');
   const doClose = fbActions.close;
 
   // Validate: at least one action must be selected
-  const hasAnyStep = steps.clickReply || steps.inputText || steps.submitReply;
+  const hasAnyStep = steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
   if (!hasAnyStep && !doClose) {
     showFBStatus('Please select at least one action.', 'error');
     return;
@@ -42,8 +43,15 @@ export async function startFBAutoReply(): Promise<void> {
     return;
   }
 
+  // Only require image URLs if uploadImages step is selected
+  if (steps.uploadImages && imageUrls.length === 0) {
+    showFBStatus('Please add at least one image URL.', 'error');
+    return;
+  }
+
   const config: FBAutoReplyConfig = {
     message,
+    imageUrls,
     delayMin,
     delayMax,
     steps,

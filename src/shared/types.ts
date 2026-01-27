@@ -47,11 +47,13 @@ export interface FBTab {
 export interface FBReplySteps {
   clickReply: boolean;
   inputText: boolean;
+  uploadImages: boolean;
   submitReply: boolean;
 }
 
 export interface FBAutoReplyConfig {
   message: string;
+  imageUrls: string[];
   delayMin: number;
   delayMax: number;
   steps: FBReplySteps;
@@ -75,7 +77,7 @@ export type MessageType =
   | { type: 'GET_DATA'; payload?: undefined }
   | { type: 'CSS_SEARCH'; payload: { query: string } }
   | { type: 'CSS_SEARCH_RESULT'; payload: CSSSearchResult }
-  | { type: 'FB_AUTO_REPLY'; payload: { message: string; steps: FBReplySteps } }
+  | { type: 'FB_AUTO_REPLY'; payload: { message: string; imageUrls: string[]; steps: FBReplySteps } }
   | { type: 'FB_AUTO_REPLY_RESULT'; payload: FBReplyResult }
   // FB Auto Reply background service messages
   | { type: 'FB_SCAN_TABS'; payload?: undefined }

@@ -297,8 +297,8 @@ function simulateClick(element: HTMLElement): void {
 }
 
 // FB Auto Reply functionality
-async function performFBReply(message: string, steps: FBReplySteps): Promise<FBReplyResult> {
-  logger.info('Starting FB Auto Reply', { message, steps, url: window.location.href });
+async function performFBReply(message: string, imageUrls: string[], steps: FBReplySteps): Promise<FBReplyResult> {
+  logger.info('Starting FB Auto Reply', { message, imageUrls, steps, url: window.location.href });
 
   try {
     // Wait for page to be ready and for Facebook to load the comment
@@ -604,11 +604,161 @@ async function performFBReply(message: string, steps: FBReplySteps): Promise<FBR
       await wait(800);
     }
 
-    // ========== STEP 3: Submit Reply ==========
+    // ========== STEP 3: Upload Image ==========
+    if (steps.uploadImages && imageUrls.length > 0 && input) {
+      // Randomly select one image from the list
+      const randomIndex = Math.floor(Math.random() * imageUrls.length);
+      const imageUrl = imageUrls[randomIndex];
+      logger.info('Step 3 (Upload Image): Starting image upload', {
+        selectedIndex: randomIndex,
+        totalUrls: imageUrls.length,
+        url: imageUrl
+      });
+
+      try {
+        // Fetch the image
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          logger.warn(`Failed to fetch image: ${response.status}`, { url: imageUrl });
+        } else {
+          const blob = await response.blob();
+          const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'image.jpg';
+          const mimeType = blob.type || 'image/jpeg';
+
+          // Create a File object from the blob
+          const file = new File([blob], fileName, { type: mimeType });
+
+          // Create a DataTransfer object and add the file
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+
+          // Focus the input
+          input.focus();
+          await wait(200);
+
+          // Try multiple approaches to paste the image
+
+          // Approach 1: Dispatch paste event with clipboardData
+          const pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dataTransfer,
+          });
+
+          // Try to dispatch on the input element
+          const pasteHandled = input.dispatchEvent(pasteEvent);
+          logger.debug('Paste event dispatched', { handled: pasteHandled, fileName, mimeType });
+
+          await wait(500);
+
+          // Approach 2: Try drop event if paste didn't work
+          const dropEvent = new DragEvent('drop', {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dataTransfer,
+          });
+          input.dispatchEvent(dropEvent);
+
+          await wait(500);
+
+          // Approach 3: Try to find and use the photo/image upload button
+          const parent = input.closest('form') || input.parentElement?.parentElement?.parentElement?.parentElement || document;
+          const photoButtonSelectors = [
+            '[aria-label*="photo" i]',
+            '[aria-label*="image" i]',
+            '[aria-label*="hình ảnh" i]',
+            '[aria-label*="ảnh" i]',
+            '[data-testid*="photo"]',
+            '[data-testid*="image"]',
+          ];
+
+          let photoButton: HTMLElement | null = null;
+          for (const selector of photoButtonSelectors) {
+            const btns = parent.querySelectorAll(selector);
+            for (const btn of Array.from(btns)) {
+              const el = btn as HTMLElement;
+              if (el.offsetParent !== null || el.offsetHeight > 0) {
+                const ariaLabel = el.getAttribute('aria-label')?.toLowerCase() || '';
+                // Skip if it's an emoji or sticker button
+                if (ariaLabel.includes('emoji') || ariaLabel.includes('sticker') || ariaLabel.includes('gif')) continue;
+                photoButton = el;
+                break;
+              }
+            }
+            if (photoButton) break;
+          }
+
+          if (photoButton) {
+            logger.info('Found photo button, attempting to use file input');
+            // Look for a file input nearby
+            const fileInput = parent.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+            if (fileInput) {
+              // Set the file to the input
+              dataTransfer.items.clear();
+              dataTransfer.items.add(file);
+              fileInput.files = dataTransfer.files;
+              fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+              logger.info('Set file to file input');
+              await wait(1000);
+            }
+          }
+
+          logger.info('Image upload attempted', { fileName, url: imageUrl });
+
+          // Wait for image to actually appear in the comment box
+          const maxWaitTime = 10000; // 10 seconds max
+          const checkInterval = 500;
+          let waitedTime = 0;
+          let imageAttached = false;
+
+          while (waitedTime < maxWaitTime) {
+            await wait(checkInterval);
+            waitedTime += checkInterval;
+
+            // Check for image attachment indicators
+            const parent = input.closest('form') || input.parentElement?.parentElement?.parentElement?.parentElement || document;
+
+            // Look for image preview elements (Facebook shows a thumbnail when image is attached)
+            const imageIndicators = parent.querySelectorAll([
+              'img[src*="blob:"]',
+              'img[src*="scontent"]',
+              '[data-testid*="media"]',
+              '[data-testid*="image"]',
+              '[data-testid*="photo"]',
+              '[aria-label*="photo" i][aria-label*="attached" i]',
+              '[aria-label*="Remove" i][aria-label*="photo" i]',
+              '[aria-label*="Xóa" i]',
+              'div[role="img"]',
+              '[data-visualcompletion="media-vc-image"]',
+            ].join(', '));
+
+            if (imageIndicators.length > 0) {
+              imageAttached = true;
+              logger.info('Image attachment detected', { waitedTime, indicators: imageIndicators.length });
+              break;
+            }
+
+            logger.debug('Waiting for image to attach...', { waitedTime, maxWaitTime });
+          }
+
+          if (!imageAttached) {
+            logger.warn('Image may not have attached within timeout', { waitedTime: maxWaitTime });
+          }
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        logger.warn('Error uploading image', { error: errMsg, url: imageUrl });
+      }
+
+      await wait(500);
+      logger.info('Step 3 (Upload Image) completed');
+    }
+
+    // ========== STEP 4: Submit Reply ==========
     if (steps.submitReply && input) {
       // Submit the comment using Enter key (most reliable for Facebook)
       // Facebook comments are typically submitted with Enter key
-      logger.info('Step 3 (Submit): Submitting comment via Enter key');
+      logger.info('Step 4 (Submit): Submitting comment via Enter key');
 
       input.focus();
 
@@ -695,10 +845,10 @@ async function performFBReply(message: string, steps: FBReplySteps): Promise<FBR
       }
 
       await wait(2000);
-      logger.info('Step 3 (Submit) completed');
+      logger.info('Step 4 (Submit) completed');
     }
 
-    logger.info('FB Auto Reply completed', { steps });
+    logger.info('FB Auto Reply completed', { steps, imageCount: imageUrls.length });
     return { success: true };
 
   } catch (error) {
@@ -727,8 +877,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'FB_AUTO_REPLY') {
     const replyMessage = message.payload?.message || '';
-    const steps: FBReplySteps = message.payload?.steps || { clickReply: true, inputText: true, submitReply: true };
-    performFBReply(replyMessage, steps).then(result => {
+    const imageUrls: string[] = message.payload?.imageUrls || [];
+    const steps: FBReplySteps = message.payload?.steps || { clickReply: true, inputText: true, uploadImages: false, submitReply: true };
+    performFBReply(replyMessage, imageUrls, steps).then(result => {
       sendResponse({ success: result.success, data: result, error: result.error });
     });
     return true; // Keep channel open for async response

@@ -31,13 +31,22 @@ export function updateFBProgress(completed: number, total: number): void {
 
 export function updateFBActionUI(): void {
   const messageSettings = document.getElementById('fbMessageSettings') as HTMLElement;
+  const imageSettings = document.getElementById('fbImageSettings') as HTMLElement;
   const stepInputText = document.getElementById('fbStepInputText') as HTMLInputElement;
+  const stepUploadImages = document.getElementById('fbStepUploadImages') as HTMLInputElement;
 
   // Show message input only when input text step is checked
   if (stepInputText?.checked) {
     messageSettings.classList.remove('hidden');
   } else {
     messageSettings.classList.add('hidden');
+  }
+
+  // Show image URLs only when upload images step is checked
+  if (stepUploadImages?.checked) {
+    imageSettings.classList.remove('hidden');
+  } else {
+    imageSettings.classList.add('hidden');
   }
 
   updateFBButtonStates();

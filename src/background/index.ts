@@ -83,10 +83,10 @@ async function scanFBTabs(): Promise<FBTab[]> {
 }
 
 async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
-  const { message, delayMin, delayMax, steps, doClose } = config;
+  const { message, imageUrls, delayMin, delayMax, steps, doClose } = config;
 
   // Validate: at least one action must be selected
-  const hasAnyStep = steps.clickReply || steps.inputText || steps.submitReply;
+  const hasAnyStep = steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
   if (!hasAnyStep && !doClose) {
     logger.error('FB Auto Reply: No action selected');
     return;
@@ -95,6 +95,12 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
   // Only require message if inputText step is selected
   if (steps.inputText && !message.trim()) {
     logger.error('FB Auto Reply: No message provided');
+    return;
+  }
+
+  // Only require image URLs if uploadImages step is selected
+  if (steps.uploadImages && (!imageUrls || imageUrls.length === 0)) {
+    logger.error('FB Auto Reply: No image URLs provided');
     return;
   }
 
@@ -178,10 +184,10 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
         let response = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, message, attempt });
+            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, message, imageUrls, attempt });
             response = await chrome.tabs.sendMessage(tab.id, {
               type: 'FB_AUTO_REPLY',
-              payload: { message, steps },
+              payload: { message, imageUrls, steps },
             });
             break;
           } catch (sendError) {
