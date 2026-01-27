@@ -1045,20 +1045,33 @@ if (!alreadyInitialized) {
     if (!foundButton) {
       console.log('[FB Notif] No expand button found, trying scroll method');
 
-      // Method 3: Just scroll down to load more via infinite scroll
+      // Scroll down using keyboard simulation
       for (let i = 0; i < 5; i++) {
-        const scrollAmount = window.innerHeight;
-        window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-        document.documentElement.scrollTop += scrollAmount;
-        document.body.scrollTop += scrollAmount;
-        console.log(`[FB Notif] Fallback scroll ${i + 1}/5, scrollY: ${window.scrollY}`);
+        const keydownEvent = new KeyboardEvent('keydown', {
+          key: 'PageDown',
+          code: 'PageDown',
+          keyCode: 34,
+          which: 34,
+          bubbles: true,
+          cancelable: true,
+        });
+        document.dispatchEvent(keydownEvent);
+        window.dispatchEvent(keydownEvent);
+        console.log(`[FB Notif] Fallback scroll ${i + 1}/5`);
         await wait(1500);
       }
 
       // Scroll back to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
+      const homeEvent = new KeyboardEvent('keydown', {
+        key: 'Home',
+        code: 'Home',
+        keyCode: 36,
+        which: 36,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.dispatchEvent(homeEvent);
+      window.scrollTo({ top: 0 });
     }
 
     logger.info('FB Notifications: Expansion process complete');
@@ -1120,30 +1133,50 @@ if (!alreadyInitialized) {
     console.log('[FB Notif] Click sequence completed, waiting 3s for content to load...');
     await wait(3000);
 
-    // Scroll down 5 times to load more notifications
-    console.log('[FB Notif] Starting scroll down 5 times');
+    // Scroll down 5 times using keyboard simulation
+    console.log('[FB Notif] Starting scroll down 5 times using PageDown');
     for (let i = 0; i < 5; i++) {
-      // Try multiple scroll methods
-      const scrollAmount = window.innerHeight;
+      // Simulate PageDown key press
+      const keydownEvent = new KeyboardEvent('keydown', {
+        key: 'PageDown',
+        code: 'PageDown',
+        keyCode: 34,
+        which: 34,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.dispatchEvent(keydownEvent);
+      document.body.dispatchEvent(keydownEvent);
+      window.dispatchEvent(keydownEvent);
 
-      // Method 1: scrollBy
-      window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      // Also try End key
+      const endEvent = new KeyboardEvent('keydown', {
+        key: 'End',
+        code: 'End',
+        keyCode: 35,
+        which: 35,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.dispatchEvent(endEvent);
 
-      // Method 2: documentElement
-      document.documentElement.scrollTop += scrollAmount;
-
-      // Method 3: body
-      document.body.scrollTop += scrollAmount;
-
-      console.log(`[FB Notif] Scroll ${i + 1}/5, scrollY: ${window.scrollY}`);
+      console.log(`[FB Notif] Scroll ${i + 1}/5`);
       await wait(1500);
     }
 
-    console.log('[FB Notif] Scrolling back to top');
-    // Scroll back to top for scanning
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    console.log('[FB Notif] Scrolling back to top using Home key');
+    // Scroll back to top using Home key
+    const homeEvent = new KeyboardEvent('keydown', {
+      key: 'Home',
+      code: 'Home',
+      keyCode: 36,
+      which: 36,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(homeEvent);
+    window.scrollTo({ top: 0 });
     document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
     await wait(500);
   }
 
