@@ -7,6 +7,9 @@ import {
   FBTab,
   FBAutoReplyState,
   FBAutoReplyConfig,
+  FBNotificationListenerState,
+  FBNotificationListenerConfig,
+  FBNotificationScanResult,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -331,15 +334,224 @@ function selectAllTabs(selected: boolean): void {
 }
 
 // ============================================
+// FB Notification Listener Service
+// ============================================
+
+const NOTIF_ALARM_NAME = 'fb-notification-check';
+
+const notifState: FBNotificationListenerState = {
+  running: false,
+  lastCheck: null,
+  nextCheck: null,
+  notificationsFound: 0,
+  tabsOpened: 0,
+};
+
+let notifConfig: FBNotificationListenerConfig = {
+  enabled: false,
+  intervalSeconds: 30,
+  filters: {
+    mentionsName: true,
+    replyNotifications: true,
+    allCommentNotifications: false,
+  },
+  autoStartReply: false,
+  expandPreviousNotifications: false,
+};
+
+function broadcastNotifState(): void {
+  chrome.runtime.sendMessage({ type: 'FB_NOTIF_STATE_UPDATE', payload: notifState }).catch(() => {
+    // Ignore errors when popup is closed
+  });
+}
+
+async function loadNotifConfig(): Promise<void> {
+  const stored = await chrome.storage.local.get(['fbNotifConfig']);
+  if (stored.fbNotifConfig) {
+    notifConfig = stored.fbNotifConfig;
+  }
+}
+
+async function saveNotifConfig(config: FBNotificationListenerConfig): Promise<void> {
+  notifConfig = config;
+  await chrome.storage.local.set({ fbNotifConfig: config });
+}
+
+async function startNotificationListener(config: FBNotificationListenerConfig): Promise<void> {
+  logger.info('FB Notification Listener: Starting', {
+    intervalSeconds: config.intervalSeconds,
+    filters: config.filters,
+  });
+
+  notifConfig = config;
+  await saveNotifConfig(config);
+
+  // Create alarm for periodic checks
+  await chrome.alarms.create(NOTIF_ALARM_NAME, {
+    delayInMinutes: config.intervalSeconds / 60,
+    periodInMinutes: config.intervalSeconds / 60,
+  });
+
+  notifState.running = true;
+  notifState.error = undefined;
+  notifState.nextCheck = Date.now() + config.intervalSeconds * 1000;
+
+  broadcastNotifState();
+
+  // Run first check immediately
+  await runNotificationCheck();
+}
+
+async function stopNotificationListener(): Promise<void> {
+  logger.info('FB Notification Listener: Stopping');
+
+  await chrome.alarms.clear(NOTIF_ALARM_NAME);
+
+  notifState.running = false;
+  notifState.nextCheck = null;
+
+  broadcastNotifState();
+}
+
+async function runNotificationCheck(): Promise<void> {
+  logger.info('FB Notification Listener: Running check');
+
+  try {
+    // Find or open the Facebook notifications page
+    const notifUrl = 'https://www.facebook.com/notifications';
+    let notifTab: chrome.tabs.Tab | null = null;
+
+    // Look for existing notifications tab
+    const existingTabs = await chrome.tabs.query({ url: '*://www.facebook.com/notifications*' });
+    if (existingTabs.length > 0) {
+      notifTab = existingTabs[0];
+      // Refresh the tab to get latest notifications
+      await chrome.tabs.reload(notifTab.id!);
+    } else {
+      // Open new tab
+      notifTab = await chrome.tabs.create({ url: notifUrl, active: false });
+    }
+
+    if (!notifTab?.id) {
+      throw new Error('Could not open notifications tab');
+    }
+
+    // Wait for tab to load
+    await waitForTabLoad(notifTab.id);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Inject content script
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: notifTab.id },
+        files: ['content/index.js'],
+      });
+    } catch {
+      // Script might already be injected
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Send scan request to content script
+    const scanResult = (await chrome.tabs.sendMessage(notifTab.id, {
+      type: 'FB_NOTIF_SCAN_PAGE',
+      payload: {
+        filters: notifConfig.filters,
+        expandPrevious: notifConfig.expandPreviousNotifications,
+      },
+    })) as FBNotificationScanResult;
+
+    if (!scanResult?.success) {
+      throw new Error(scanResult?.error || 'Scan failed');
+    }
+
+    const notifications = scanResult.notifications || [];
+    notifState.notificationsFound += notifications.length;
+    notifState.lastCheck = Date.now();
+
+    logger.info('FB Notification Listener: Scan complete', {
+      found: notifications.length,
+    });
+
+    // Open matching notifications in new tabs
+    let tabsOpened = 0;
+    for (const notif of notifications) {
+      if (notif.url) {
+        await chrome.tabs.create({ url: notif.url, active: false });
+        tabsOpened++;
+        // Small delay between opening tabs
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    notifState.tabsOpened += tabsOpened;
+
+    // Update next check time
+    if (notifState.running) {
+      notifState.nextCheck = Date.now() + notifConfig.intervalSeconds * 1000;
+    }
+
+    // Optionally trigger auto-reply
+    if (notifConfig.autoStartReply && tabsOpened > 0 && !fbState.running) {
+      logger.info('FB Notification Listener: Triggering auto-reply scan');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await scanFBTabs();
+    }
+
+    broadcastNotifState();
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    logger.error('FB Notification Listener: Check failed', { error: errMsg });
+    notifState.error = errMsg;
+    notifState.lastCheck = Date.now();
+    broadcastNotifState();
+  }
+}
+
+async function waitForTabLoad(tabId: number, timeout = 30000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+
+    const checkStatus = async () => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.status === 'complete') {
+          resolve();
+          return;
+        }
+        if (Date.now() - startTime > timeout) {
+          reject(new Error('Tab load timeout'));
+          return;
+        }
+        setTimeout(checkStatus, 500);
+      } catch {
+        reject(new Error('Tab no longer exists'));
+      }
+    };
+
+    checkStatus();
+  });
+}
+
+// ============================================
 // Extension lifecycle
 // ============================================
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   logger.info('Extension installed');
+  await loadNotifConfig();
 });
 
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(async () => {
   logger.info('Extension started');
+  await loadNotifConfig();
+});
+
+// Listen for alarms
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === NOTIF_ALARM_NAME) {
+    logger.debug('FB Notification Listener: Alarm triggered');
+    await runNotificationCheck();
+  }
 });
 
 // Listen for messages from content scripts or popup
@@ -409,6 +621,45 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
     case 'FB_SELECT_ALL_TABS':
       selectAllTabs(message.payload.selected);
       sendResponse({ success: true } as MessageResponse);
+      break;
+
+    // FB Notification Listener commands
+    case 'FB_NOTIF_START':
+      startNotificationListener(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'FB_NOTIF_STOP':
+      stopNotificationListener().then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'FB_NOTIF_CHECK_NOW':
+      runNotificationCheck().then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'FB_NOTIF_GET_STATE':
+      sendResponse({
+        success: true,
+        data: notifState,
+      } as MessageResponse<FBNotificationListenerState>);
+      break;
+
+    case 'FB_NOTIF_SAVE_CONFIG':
+      saveNotifConfig(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'FB_NOTIF_GET_CONFIG':
+      sendResponse({
+        success: true,
+        data: notifConfig,
+      } as MessageResponse<FBNotificationListenerConfig>);
       break;
 
     default:

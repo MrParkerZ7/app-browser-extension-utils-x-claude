@@ -6,6 +6,7 @@ import { setupOpenWindow } from './core/window';
 import { setupLogging } from './features/logging';
 import { setupCSSCounter } from './features/css-counter';
 import { setupFBAutoReply } from './features/fb-reply';
+import { setupNotificationListener } from './features/fb-notif-listener';
 
 const logger = createLogger('popup');
 
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await setupLogging();
   await setupCSSCounter();
   await setupFBAutoReply();
+  await setupNotificationListener();
 
   // Log current tab info
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {

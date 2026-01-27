@@ -493,3 +493,184 @@
   margin-top: 6px;
   text-align: center;
 }
+
+/* ============================================
+   FB Notification Listener Styles
+   ============================================ */
+
+.fb-notif-section {
+  margin-top: 16px;
+  border-top: 1px solid #0f3460;
+  padding-top: 12px;
+}
+
+.fb-notif-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #16213e;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #e0e0e0;
+  transition: background 0.2s;
+}
+
+.fb-notif-section-header:hover {
+  background: #1a2a4e;
+}
+
+.fb-notif-section-header.collapsed .fb-notif-collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.fb-notif-collapse-icon {
+  transition: transform 0.2s;
+}
+
+.fb-notif-section-content {
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fb-notif-section-content.collapsed {
+  display: none;
+}
+
+.fb-notif-desc {
+  color: #8892b0;
+  font-size: 12px;
+  margin: 0;
+}
+
+.fb-notif-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fb-notif-label {
+  font-size: 13px;
+  color: #8892b0;
+}
+
+.fb-notif-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.fb-notif-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #e0e0e0;
+}
+
+.fb-notif-checkbox input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #64ffda;
+}
+
+.fb-notif-checkbox span {
+  user-select: none;
+}
+
+.fb-notif-input {
+  width: 80px;
+  padding: 6px 8px;
+  background: #0d1b2a;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+
+.fb-notif-input:focus {
+  border-color: #64ffda;
+}
+
+.fb-notif-status {
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: none;
+}
+
+.fb-notif-status.visible {
+  display: block;
+}
+
+.fb-notif-status.error {
+  background: #3d0a0a;
+  color: #ff6b6b;
+  border: 1px solid #5c1e1e;
+}
+
+.fb-notif-status.info {
+  background: #0a3d3d;
+  color: #64ffda;
+  border: 1px solid #1a5a4a;
+}
+
+.fb-notif-status.warning {
+  background: #3d3a0a;
+  color: #ffc107;
+  border: 1px solid #5c5a1e;
+}
+
+.fb-notif-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+  background: #0d1b2a;
+  border-radius: 6px;
+}
+
+.fb-notif-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fb-notif-stat-label {
+  font-size: 11px;
+  color: #8892b0;
+}
+
+.fb-notif-stat-value {
+  font-size: 13px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.fb-notif-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.fb-notif-actions .btn {
+  flex: 1;
+}
+
+.btn-secondary {
+  background: #16213e;
+  color: #8892b0;
+  border: 1px solid #0f3460;
+}
+
+.btn-secondary:hover {
+  background: #1a2a4e;
+  color: #e0e0e0;
+}

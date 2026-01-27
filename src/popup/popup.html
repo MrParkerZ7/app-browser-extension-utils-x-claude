@@ -300,6 +300,102 @@
             </div>
             <div class="progress-text" id="fbProgressText">0 / 0 completed</div>
           </div>
+
+          <!-- Notification Listener Section -->
+          <div class="fb-notif-section">
+            <div class="fb-notif-section-header" id="fbNotifSectionHeader">
+              <svg
+                class="fb-notif-collapse-icon"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+              <span>Notification Listener</span>
+            </div>
+            <div class="fb-notif-section-content" id="fbNotifSectionContent">
+              <p class="fb-notif-desc">
+                Periodically scans Facebook notifications and opens matching ones in new tabs.
+              </p>
+
+              <div class="fb-notif-settings">
+                <label class="fb-notif-label">Detection filters:</label>
+                <div class="fb-notif-checkboxes">
+                  <label class="fb-notif-checkbox">
+                    <input type="checkbox" id="fbNotifFilterMentions" checked />
+                    <span>Mentions your name</span>
+                  </label>
+                  <label class="fb-notif-checkbox">
+                    <input type="checkbox" id="fbNotifFilterReplies" checked />
+                    <span>Reply notifications</span>
+                  </label>
+                  <label class="fb-notif-checkbox">
+                    <input type="checkbox" id="fbNotifFilterAllComments" />
+                    <span>All comment notifications</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="fb-notif-settings">
+                <label class="fb-notif-label">Options:</label>
+                <div class="fb-notif-checkboxes">
+                  <label class="fb-notif-checkbox">
+                    <input type="checkbox" id="fbNotifExpandPrevious" />
+                    <span>Expand previous notifications</span>
+                  </label>
+                  <label class="fb-notif-checkbox">
+                    <input type="checkbox" id="fbNotifAutoReply" />
+                    <span>Auto-start FB Auto Reply</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="fb-notif-settings">
+                <label class="fb-notif-label">Check interval (seconds):</label>
+                <input
+                  type="number"
+                  id="fbNotifInterval"
+                  class="fb-notif-input"
+                  value="30"
+                  min="10"
+                  max="3600"
+                />
+              </div>
+
+              <div class="fb-notif-status" id="fbNotifStatus"></div>
+
+              <div class="fb-notif-stats">
+                <div class="fb-notif-stat">
+                  <span class="fb-notif-stat-label">Last check:</span>
+                  <span class="fb-notif-stat-value" id="fbNotifLastCheck">Never</span>
+                </div>
+                <div class="fb-notif-stat">
+                  <span class="fb-notif-stat-label">Next check:</span>
+                  <span class="fb-notif-stat-value" id="fbNotifNextCheck">-</span>
+                </div>
+                <div class="fb-notif-stat">
+                  <span class="fb-notif-stat-label">Found:</span>
+                  <span class="fb-notif-stat-value" id="fbNotifFound">0</span>
+                </div>
+                <div class="fb-notif-stat">
+                  <span class="fb-notif-stat-label">Tabs opened:</span>
+                  <span class="fb-notif-stat-value" id="fbNotifOpened">0</span>
+                </div>
+              </div>
+
+              <div class="fb-notif-actions">
+                <button class="btn btn-primary" id="fbNotifStartBtn">Start</button>
+                <button class="btn btn-danger" id="fbNotifStopBtn" style="display: none">
+                  Stop
+                </button>
+                <button class="btn btn-secondary" id="fbNotifCheckNowBtn">Check Now</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

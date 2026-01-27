@@ -32,6 +32,44 @@ export interface FBReplyResult {
   error?: string;
 }
 
+// FB Notification Listener types
+export interface FBNotificationFilter {
+  mentionsName: boolean;
+  replyNotifications: boolean;
+  allCommentNotifications: boolean;
+}
+
+export interface FBNotificationListenerConfig {
+  enabled: boolean;
+  intervalSeconds: number;
+  filters: FBNotificationFilter;
+  autoStartReply: boolean;
+  expandPreviousNotifications: boolean;
+}
+
+export interface FBNotificationListenerState {
+  running: boolean;
+  lastCheck: number | null;
+  nextCheck: number | null;
+  notificationsFound: number;
+  tabsOpened: number;
+  error?: string;
+}
+
+export interface FBNotificationItem {
+  id: string;
+  text: string;
+  url: string;
+  timestamp?: number;
+  matchType: 'mention' | 'reply' | 'comment';
+}
+
+export interface FBNotificationScanResult {
+  success: boolean;
+  notifications: FBNotificationItem[];
+  error?: string;
+}
+
 export type FBTabStatus = 'pending' | 'processing' | 'done' | 'error';
 
 export interface FBTab {
@@ -90,7 +128,20 @@ export type MessageType =
   | { type: 'FB_GET_STATE'; payload?: undefined }
   | { type: 'FB_STATE_UPDATE'; payload: FBAutoReplyState }
   | { type: 'FB_SELECT_TAB'; payload: { tabId: number; selected: boolean } }
-  | { type: 'FB_SELECT_ALL_TABS'; payload: { selected: boolean } };
+  | { type: 'FB_SELECT_ALL_TABS'; payload: { selected: boolean } }
+  // FB Notification Listener messages
+  | { type: 'FB_NOTIF_START'; payload: FBNotificationListenerConfig }
+  | { type: 'FB_NOTIF_STOP'; payload?: undefined }
+  | { type: 'FB_NOTIF_CHECK_NOW'; payload?: undefined }
+  | { type: 'FB_NOTIF_GET_STATE'; payload?: undefined }
+  | { type: 'FB_NOTIF_STATE_UPDATE'; payload: FBNotificationListenerState }
+  | { type: 'FB_NOTIF_SAVE_CONFIG'; payload: FBNotificationListenerConfig }
+  | { type: 'FB_NOTIF_GET_CONFIG'; payload?: undefined }
+  | {
+      type: 'FB_NOTIF_SCAN_PAGE';
+      payload: { filters: FBNotificationFilter; expandPrevious: boolean };
+    }
+  | { type: 'FB_NOTIF_SCAN_RESULT'; payload: FBNotificationScanResult };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

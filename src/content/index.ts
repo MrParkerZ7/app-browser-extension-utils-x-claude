@@ -1,6 +1,13 @@
 // Content script - runs in the context of web pages
 import { createLogger } from '../shared/logger';
-import { CSSSearchResult, FBReplyResult, FBReplySteps } from '../shared/types';
+import {
+  CSSSearchResult,
+  FBReplyResult,
+  FBReplySteps,
+  FBNotificationFilter,
+  FBNotificationItem,
+  FBNotificationScanResult,
+} from '../shared/types';
 import { wait } from '../shared/utils';
 
 // Prevent multiple initializations when script is injected multiple times
@@ -956,6 +963,338 @@ if (!alreadyInitialized) {
     }
   }
 
+  // ============================================
+  // FB Notification Page Scanning
+  // ============================================
+
+  async function expandPreviousNotifications(): Promise<void> {
+    logger.info('FB Notifications: Starting expansion of previous notifications');
+
+    // Wait for page to be ready
+    await wait(1000);
+
+    // Scroll down first to trigger lazy-loaded content
+    window.scrollTo(0, document.body.scrollHeight / 2);
+    await wait(1000);
+
+    // Method 1: Direct aria-label selector (most reliable for Facebook's button)
+    const ariaLabels = [
+      'See previous notifications',
+      'Xem thông báo trước đó',
+      'Xem các thông báo trước',
+    ];
+
+    let foundButton = false;
+
+    // Log all buttons with role="button" for debugging
+    const allButtons = document.querySelectorAll('[role="button"]');
+    console.log(`[FB Notif] Found ${allButtons.length} buttons on page`);
+
+    for (const ariaLabel of ariaLabels) {
+      if (foundButton) break;
+
+      const button = document.querySelector(
+        `[role="button"][aria-label="${ariaLabel}"]`
+      ) as HTMLElement;
+
+      console.log(`[FB Notif] Looking for aria-label="${ariaLabel}", found: ${!!button}`);
+
+      if (button) {
+        logger.info('FB Notifications: Found expand button via aria-label', {
+          ariaLabel,
+        });
+
+        foundButton = true;
+        await clickExpandButton(button);
+      }
+    }
+
+    // Method 2: Search by text content if aria-label didn't work
+    if (!foundButton) {
+      const buttonTexts = [
+        'see previous notifications',
+        'see earlier notifications',
+        'see previous',
+        'see earlier',
+        'xem thông báo trước đó',
+        'xem thông báo cũ hơn',
+        'xem các thông báo trước',
+      ];
+
+      const buttons = document.querySelectorAll('[role="button"]');
+      for (const el of Array.from(buttons)) {
+        if (foundButton) break;
+
+        const htmlEl = el as HTMLElement;
+        const text = htmlEl.innerText?.toLowerCase().trim() || '';
+
+        for (const searchText of buttonTexts) {
+          if (text === searchText || text.includes(searchText)) {
+            logger.info('FB Notifications: Found expand button via text content', {
+              text: text.substring(0, 60),
+            });
+
+            foundButton = true;
+            await clickExpandButton(htmlEl);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!foundButton) {
+      logger.warn('FB Notifications: No expand button found, trying scroll method');
+
+      // Method 3: Just scroll down to load more via infinite scroll
+      for (let i = 0; i < 5; i++) {
+        window.scrollTo(0, document.body.scrollHeight);
+        await wait(1000);
+        logger.debug(`FB Notifications: Scroll attempt ${i + 1}/5`);
+      }
+
+      // Scroll back to top
+      window.scrollTo(0, 0);
+    }
+
+    logger.info('FB Notifications: Expansion process complete');
+  }
+
+  async function clickExpandButton(button: HTMLElement): Promise<void> {
+    console.log('[FB Notif] clickExpandButton called');
+
+    // Scroll into view first
+    button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await wait(500);
+
+    // Get updated position after scroll
+    const rect = button.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    logger.info('FB Notifications: Clicking expand button', {
+      tagName: button.tagName,
+      role: button.getAttribute('role'),
+      ariaLabel: button.getAttribute('aria-label'),
+    });
+
+    // Mouse enter and over
+    button.dispatchEvent(
+      new MouseEvent('mouseenter', { bubbles: true, clientX: centerX, clientY: centerY })
+    );
+    button.dispatchEvent(
+      new MouseEvent('mouseover', { bubbles: true, clientX: centerX, clientY: centerY })
+    );
+    await wait(100);
+
+    // Focus
+    if (button.focus) {
+      button.focus();
+    }
+    await wait(100);
+
+    // Full click sequence
+    const eventOptions = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: centerX,
+      clientY: centerY,
+      button: 0,
+      buttons: 1,
+    };
+
+    button.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+    await wait(50);
+    button.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+    await wait(50);
+    button.dispatchEvent(new MouseEvent('click', eventOptions));
+
+    // Also try direct click
+    button.click();
+
+    console.log('[FB Notif] Click sequence completed, waiting 2s...');
+    await wait(2000);
+
+    // Scroll down 5 times to load more notifications
+    console.log('[FB Notif] Starting scroll down 5 times');
+    for (let i = 0; i < 5; i++) {
+      window.scrollTo(0, document.body.scrollHeight);
+      console.log(`[FB Notif] Scroll ${i + 1}/5`);
+      await wait(1000);
+    }
+
+    // Scroll back to top for scanning
+    window.scrollTo(0, 0);
+    await wait(500);
+  }
+
+  function parseNotificationItem(element: HTMLElement): FBNotificationItem | null {
+    // Find the notification link
+    const link = element.querySelector('a[href*="comment_id"], a[href*="notif_id"]');
+    if (!link) return null;
+
+    const href = link.getAttribute('href') || '';
+    const text = element.textContent?.trim() || '';
+
+    // Generate a unique ID from the href
+    const urlMatch = href.match(/comment_id=(\d+)|notif_id=([^&]+)/);
+    const id = urlMatch ? urlMatch[1] || urlMatch[2] : `notif-${Date.now()}-${Math.random()}`;
+
+    // Determine match type based on text content
+    let matchType: 'mention' | 'reply' | 'comment' = 'comment';
+    const lowerText = text.toLowerCase();
+
+    if (
+      lowerText.includes('mentioned you') ||
+      lowerText.includes('đã nhắc đến bạn') ||
+      lowerText.includes('tagged you') ||
+      lowerText.includes('đã gắn thẻ bạn')
+    ) {
+      matchType = 'mention';
+    } else if (
+      lowerText.includes('replied to') ||
+      lowerText.includes('đã trả lời') ||
+      lowerText.includes('replied to your comment') ||
+      lowerText.includes('đã phản hồi')
+    ) {
+      matchType = 'reply';
+    }
+
+    // Convert relative URL to absolute
+    let fullUrl = href;
+    if (href.startsWith('/')) {
+      fullUrl = `https://www.facebook.com${href}`;
+    }
+
+    return {
+      id,
+      text: text.substring(0, 200),
+      url: fullUrl,
+      matchType,
+    };
+  }
+
+  function matchesFilters(item: FBNotificationItem, filters: FBNotificationFilter): boolean {
+    // If all comment notifications filter is enabled, match everything
+    if (filters.allCommentNotifications) {
+      return true;
+    }
+
+    // Check specific filters
+    if (filters.mentionsName && item.matchType === 'mention') {
+      return true;
+    }
+
+    if (filters.replyNotifications && item.matchType === 'reply') {
+      return true;
+    }
+
+    return false;
+  }
+
+  async function scanNotificationsPage(
+    filters: FBNotificationFilter,
+    expandPrevious: boolean
+  ): Promise<FBNotificationScanResult> {
+    logger.info('FB Notifications: Starting scan', { filters, expandPrevious });
+
+    try {
+      // Check if we're on the notifications page
+      if (!window.location.href.includes('facebook.com/notifications')) {
+        return {
+          success: false,
+          notifications: [],
+          error: 'Not on Facebook notifications page',
+        };
+      }
+
+      // Wait for page to load
+      await wait(1000);
+
+      // Optionally expand previous notifications
+      if (expandPrevious) {
+        await expandPreviousNotifications();
+        await wait(1000);
+      }
+
+      const notifications: FBNotificationItem[] = [];
+      const seenIds = new Set<string>();
+
+      // Find notification items - Facebook uses various structures
+      const selectors = [
+        '[data-pagelet="NotificationsFeed"] [role="row"]',
+        '[data-pagelet="NotificationsFeed"] [role="listitem"]',
+        '[aria-label*="notification" i] [role="row"]',
+        '[aria-label*="thông báo" i] [role="row"]',
+        'div[data-visualcompletion="ignore-dynamic"] > div > div > div',
+      ];
+
+      for (const selector of selectors) {
+        const items = document.querySelectorAll(selector);
+
+        for (const item of Array.from(items)) {
+          const htmlItem = item as HTMLElement;
+
+          // Skip if not visible
+          if (!htmlItem.offsetParent && !htmlItem.offsetHeight) continue;
+
+          const parsed = parseNotificationItem(htmlItem);
+          if (parsed && !seenIds.has(parsed.id)) {
+            if (matchesFilters(parsed, filters)) {
+              seenIds.add(parsed.id);
+              notifications.push(parsed);
+              logger.debug('FB Notifications: Found matching notification', {
+                id: parsed.id,
+                matchType: parsed.matchType,
+                text: parsed.text.substring(0, 50),
+              });
+            }
+          }
+        }
+      }
+
+      // Fallback: look for any links with comment_id
+      if (notifications.length === 0) {
+        const links = document.querySelectorAll('a[href*="comment_id"]');
+        for (const link of Array.from(links)) {
+          // Find the containing notification element
+          const container = link.closest(
+            '[role="row"], [role="listitem"], [data-pagelet] > div > div'
+          );
+          if (container) {
+            const parsed = parseNotificationItem(container as HTMLElement);
+            if (parsed && !seenIds.has(parsed.id)) {
+              if (matchesFilters(parsed, filters)) {
+                seenIds.add(parsed.id);
+                notifications.push(parsed);
+              }
+            }
+          }
+        }
+      }
+
+      logger.info('FB Notifications: Scan complete', {
+        total: notifications.length,
+        mentions: notifications.filter(n => n.matchType === 'mention').length,
+        replies: notifications.filter(n => n.matchType === 'reply').length,
+        comments: notifications.filter(n => n.matchType === 'comment').length,
+      });
+
+      return {
+        success: true,
+        notifications,
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      logger.error('FB Notifications: Scan failed', { error: errMsg });
+      return {
+        success: false,
+        notifications: [],
+        error: errMsg,
+      };
+    }
+  }
+
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Check if extension context is still valid
@@ -985,6 +1324,20 @@ if (!alreadyInitialized) {
       };
       performFBReply(replyMessage, imageUrls, steps).then(result => {
         sendResponse({ success: result.success, data: result, error: result.error });
+      });
+      return true; // Keep channel open for async response
+    }
+
+    if (message.type === 'FB_NOTIF_SCAN_PAGE') {
+      const filters = message.payload?.filters || {
+        mentionsName: true,
+        replyNotifications: true,
+        allCommentNotifications: false,
+      };
+      const expandPrevious = message.payload?.expandPrevious || false;
+
+      scanNotificationsPage(filters, expandPrevious).then(result => {
+        sendResponse(result);
       });
       return true; // Keep channel open for async response
     }
