@@ -9,8 +9,10 @@ export async function setStorageValue<T>(key: string, value: T): Promise<void> {
   await chrome.storage.local.set({ [key]: value });
 }
 
-export async function getStorageValues<T extends Record<string, unknown>>(keys: string[]): Promise<Partial<T>> {
-  return await chrome.storage.local.get(keys) as Partial<T>;
+export async function getStorageValues<T extends Record<string, unknown>>(
+  keys: string[]
+): Promise<Partial<T>> {
+  return (await chrome.storage.local.get(keys)) as Partial<T>;
 }
 
 export async function setStorageValues(values: Record<string, unknown>): Promise<void> {

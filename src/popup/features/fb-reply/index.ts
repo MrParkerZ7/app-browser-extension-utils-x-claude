@@ -42,26 +42,30 @@ function renderTemplateTabs(): void {
 
     tab.innerHTML = `
       <span class="fb-template-tab-label">${index + 1}</span>
-      ${templates.length > 1 ? `
+      ${
+        templates.length > 1
+          ? `
         <button class="fb-template-tab-remove" data-index="${index}" title="Remove template">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
-      ` : ''}
+      `
+          : ''
+      }
     `;
     headerEl.appendChild(tab);
   });
 
   // Add click handlers for tabs
   headerEl.querySelectorAll('.fb-template-tab').forEach(tab => {
-    tab.addEventListener('click', (e) => {
+    tab.addEventListener('click', e => {
       const target = e.target as HTMLElement;
       // Don't switch tab if clicking remove button
       if (target.closest('.fb-template-tab-remove')) return;
 
-      const tabEl = (e.currentTarget as HTMLElement);
+      const tabEl = e.currentTarget as HTMLElement;
       const index = parseInt(tabEl.dataset.index || '0', 10);
       switchToTemplate(index);
     });
@@ -69,7 +73,7 @@ function renderTemplateTabs(): void {
 
   // Add click handlers for remove buttons
   headerEl.querySelectorAll('.fb-template-tab-remove').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
       const index = parseInt(target.dataset.index || '0', 10);
@@ -171,7 +175,7 @@ function renderImageUrlInputs(): void {
 
   // Add event listeners for inputs
   listEl.querySelectorAll('.fb-image-url-input').forEach(input => {
-    input.addEventListener('input', (e) => {
+    input.addEventListener('input', e => {
       const target = e.target as HTMLInputElement;
       const index = parseInt(target.dataset.index || '0', 10);
       if (templates[activeTemplateIndex]) {
@@ -183,7 +187,7 @@ function renderImageUrlInputs(): void {
 
   // Add event listeners for remove buttons
   listEl.querySelectorAll('.btn-remove-image').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       const target = e.currentTarget as HTMLElement;
       const index = parseInt(target.dataset.index || '0', 10);
       if (templates[activeTemplateIndex]) {
@@ -232,16 +236,25 @@ export async function setupFBAutoReply(): Promise<void> {
 
   // Load saved settings
   const stored = await chrome.storage.local.get([
-    'fbTemplates', 'fbActiveTemplateIndex',
-    'fbReplyDelayMin', 'fbReplyDelayMax',
-    'fbStepClickReply', 'fbStepInputText', 'fbStepUploadImages', 'fbStepSubmit', 'fbActionClose'
+    'fbTemplates',
+    'fbActiveTemplateIndex',
+    'fbReplyDelayMin',
+    'fbReplyDelayMax',
+    'fbStepClickReply',
+    'fbStepInputText',
+    'fbStepUploadImages',
+    'fbStepSubmit',
+    'fbActionClose',
   ]);
 
   // Load templates
   if (stored.fbTemplates && stored.fbTemplates.length > 0) {
     templates = stored.fbTemplates;
   }
-  if (stored.fbActiveTemplateIndex !== undefined && stored.fbActiveTemplateIndex < templates.length) {
+  if (
+    stored.fbActiveTemplateIndex !== undefined &&
+    stored.fbActiveTemplateIndex < templates.length
+  ) {
     activeTemplateIndex = stored.fbActiveTemplateIndex;
   }
 

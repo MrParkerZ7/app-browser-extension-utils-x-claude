@@ -1,13 +1,6 @@
 // Logging table rendering
 import { formatTimestamp, escapeHtml, formatData } from '../../../shared/utils';
-import {
-  allLogs,
-  filteredLogs,
-  autoScroll,
-  tableSettings,
-  COLUMNS,
-  ColumnKey,
-} from './state';
+import { allLogs, filteredLogs, autoScroll, tableSettings, COLUMNS, ColumnKey } from './state';
 
 // DOM Elements
 let logTableBody: HTMLTableSectionElement;
@@ -97,7 +90,7 @@ export function renderLogs(): void {
 
   // Add click handlers for expandable content
   logTableBody.querySelectorAll('.log-cell-content').forEach(el => {
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', e => {
       e.stopPropagation();
       el.classList.toggle('expanded');
     });

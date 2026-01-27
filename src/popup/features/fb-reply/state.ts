@@ -29,7 +29,11 @@ export function setFBActions(actions: FBActions): void {
 }
 
 export function getActionLabel(): string {
-  const hasAnyStep = fbActions.steps.clickReply || fbActions.steps.inputText || fbActions.steps.uploadImages || fbActions.steps.submitReply;
+  const hasAnyStep =
+    fbActions.steps.clickReply ||
+    fbActions.steps.inputText ||
+    fbActions.steps.uploadImages ||
+    fbActions.steps.submitReply;
   if (hasAnyStep && fbActions.close) return 'Reply & Close';
   if (hasAnyStep) return 'Reply';
   if (fbActions.close) return 'Close Tabs';

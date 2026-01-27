@@ -107,14 +107,14 @@
   color: #e0e0e0;
 }
 
-.fb-action-checkbox input[type="checkbox"] {
+.fb-action-checkbox input[type='checkbox'] {
   width: 16px;
   height: 16px;
   cursor: pointer;
   accent-color: #64ffda;
 }
 
-.fb-action-checkbox input[type="checkbox"]:disabled {
+.fb-action-checkbox input[type='checkbox']:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -148,7 +148,9 @@
   border: 1px solid #0f3460;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .fb-template-tab:hover {
@@ -178,7 +180,10 @@
   color: #ff6b6b;
   cursor: pointer;
   border-radius: 3px;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
 }
 
 .fb-template-tab-remove:hover {
@@ -199,7 +204,9 @@
   border-radius: 4px;
   color: #64ffda;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .btn-add-template:hover {
@@ -278,7 +285,9 @@
   border-radius: 4px;
   color: #ff6b6b;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .btn-remove-image:hover {
@@ -297,7 +306,9 @@
   color: #64ffda;
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .btn-add-image:hover {

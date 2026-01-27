@@ -79,7 +79,7 @@ export function createLogger(source: LogSource): Logger {
 
 // Utility to fetch logs from background
 export async function getLogs(): Promise<LogEntry[]> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     chrome.runtime.sendMessage({ type: 'GET_LOGS' }, (response: MessageResponse<LogEntry[]>) => {
       if (response?.success && response.data) {
         resolve(response.data);
@@ -92,7 +92,7 @@ export async function getLogs(): Promise<LogEntry[]> {
 
 // Utility to clear logs
 export async function clearLogs(): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     chrome.runtime.sendMessage({ type: 'CLEAR_LOGS' }, () => {
       resolve();
     });

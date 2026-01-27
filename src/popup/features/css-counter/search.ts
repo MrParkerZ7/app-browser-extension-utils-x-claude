@@ -78,7 +78,11 @@ export async function performSearchForItem(id: string, query: string): Promise<v
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
 
-  if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
+  if (
+    tab.url?.startsWith('chrome://') ||
+    tab.url?.startsWith('chrome-extension://') ||
+    tab.url?.startsWith('about:')
+  ) {
     return;
   }
 
@@ -125,7 +129,11 @@ export async function performAllSearches(): Promise<void> {
     return;
   }
 
-  if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
+  if (
+    tab.url?.startsWith('chrome://') ||
+    tab.url?.startsWith('chrome-extension://') ||
+    tab.url?.startsWith('about:')
+  ) {
     showCSSStatus('Cannot search on browser internal pages', 'error');
     return;
   }
@@ -155,7 +163,7 @@ export function setupSearchItemListeners(): void {
   // Input listeners
   list.querySelectorAll('.css-input').forEach(input => {
     let debounceTimer: number;
-    input.addEventListener('input', (e) => {
+    input.addEventListener('input', e => {
       const target = e.target as HTMLInputElement;
       const itemEl = target.closest('.search-item') as HTMLElement;
       const id = itemEl.dataset.id!;
@@ -183,7 +191,7 @@ export function setupSearchItemListeners(): void {
 
   // Remove listeners
   list.querySelectorAll('.btn-remove').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', async e => {
       const itemEl = (e.target as HTMLElement).closest('.search-item') as HTMLElement;
       const id = itemEl.dataset.id!;
 

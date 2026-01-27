@@ -1,13 +1,6 @@
 // Logging feature entry point
-import { LogEntry } from '../../../shared/types';
-import { getLogs } from '../../../shared/logger';
-import { createLogger } from '../../../shared/logger';
-import {
-  setAllLogs,
-  setFilteredLogs,
-  filterAndSortLogs,
-  allLogs,
-} from './state';
+import { getLogs, createLogger } from '../../../shared/logger';
+import { setAllLogs, setFilteredLogs, filterAndSortLogs } from './state';
 import {
   setupFilterButtons,
   setupSearch,
@@ -49,7 +42,7 @@ async function loadLogs(): Promise<void> {
 
 // Setup realtime updates from background
 function setupRealtimeUpdates(): void {
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener(message => {
     if (message.type === 'LOGS_UPDATED' && Array.isArray(message.payload)) {
       setAllLogs(message.payload);
       updateStats();

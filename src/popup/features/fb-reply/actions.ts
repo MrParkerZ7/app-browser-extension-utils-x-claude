@@ -1,6 +1,6 @@
 // FB Auto Reply action handlers
 import { FBTab, FBAutoReplyConfig, FBAutoReplyState } from '../../../shared/types';
-import { fbState, fbActions, applyFBState } from './state';
+import { fbActions, applyFBState } from './state';
 import { showFBStatus, hideFBStatus } from './tabs';
 
 export async function scanFBTabs(): Promise<void> {
@@ -65,7 +65,7 @@ export async function startFBAutoReply(): Promise<void> {
 
   const response = await chrome.runtime.sendMessage({
     type: 'FB_START_AUTO_REPLY',
-    payload: config
+    payload: config,
   });
 
   if (response?.success) {
@@ -83,19 +83,19 @@ export async function stopFBAutoReply(): Promise<void> {
 export async function selectAllFBTabs(): Promise<void> {
   await chrome.runtime.sendMessage({
     type: 'FB_SELECT_ALL_TABS',
-    payload: { selected: true }
+    payload: { selected: true },
   });
 }
 
 export async function deselectAllFBTabs(): Promise<void> {
   await chrome.runtime.sendMessage({
     type: 'FB_SELECT_ALL_TABS',
-    payload: { selected: false }
+    payload: { selected: false },
   });
 }
 
 export function setupFBStateListener(): void {
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener(message => {
     if (message.type === 'FB_STATE_UPDATE' && message.payload) {
       applyFBState(message.payload as FBAutoReplyState);
     }

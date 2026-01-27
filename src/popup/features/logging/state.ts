@@ -43,7 +43,7 @@ export interface TableSettings {
 }
 
 export const COLUMNS = ['time', 'source', 'level', 'message', 'data', 'url'] as const;
-export type ColumnKey = typeof COLUMNS[number];
+export type ColumnKey = (typeof COLUMNS)[number];
 
 export const DEFAULT_TABLE_SETTINGS: TableSettings = {
   hiddenColumns: [],
@@ -59,7 +59,7 @@ export function setTableSettings(settings: TableSettings): void {
 
 // Filter and sort the logs - returns the filtered result
 export function filterAndSortLogs(): LogEntry[] {
-  let result = allLogs.filter(log => {
+  const result = allLogs.filter(log => {
     // Level filter
     if (currentLevelFilter !== 'all' && log.level !== currentLevelFilter) {
       return false;

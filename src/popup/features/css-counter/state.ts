@@ -39,7 +39,7 @@ export function updateSearchItemResults(id: string, classes: number, textMatches
 
 export async function saveSearchItems(): Promise<void> {
   await chrome.storage.local.set({
-    searchItems: searchItems.map(i => ({ id: i.id, query: i.query }))
+    searchItems: searchItems.map(i => ({ id: i.id, query: i.query })),
   });
 }
 

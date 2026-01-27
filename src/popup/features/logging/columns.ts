@@ -1,10 +1,5 @@
 // Column visibility and sorting settings
-import {
-  tableSettings,
-  setTableSettings,
-  DEFAULT_TABLE_SETTINGS,
-  ColumnKey,
-} from './state';
+import { tableSettings, setTableSettings, DEFAULT_TABLE_SETTINGS, ColumnKey } from './state';
 import { isColumnHidden, renderLogs } from './table';
 
 // Callback for when settings change and filters need reapplication
@@ -73,7 +68,7 @@ export function setupColumnSettings(): void {
   const resetBtn = document.getElementById('resetTableSettings') as HTMLButtonElement;
 
   // Toggle dropdown
-  settingsBtn.addEventListener('click', (e) => {
+  settingsBtn.addEventListener('click', e => {
     e.stopPropagation();
     dropdown.classList.toggle('show');
   });
@@ -83,7 +78,7 @@ export function setupColumnSettings(): void {
     dropdown.classList.remove('show');
   });
 
-  dropdown.addEventListener('click', (e) => {
+  dropdown.addEventListener('click', e => {
     e.stopPropagation();
   });
 

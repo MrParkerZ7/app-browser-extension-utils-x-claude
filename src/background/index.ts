@@ -1,5 +1,13 @@
 // Background service worker
-import { LogEntry, LogState, MessageType, MessageResponse, FBTab, FBAutoReplyState, FBAutoReplyConfig } from '../shared/types';
+import {
+  LogEntry,
+  LogState,
+  MessageType,
+  MessageResponse,
+  FBTab,
+  FBAutoReplyState,
+  FBAutoReplyConfig,
+} from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
 
@@ -37,7 +45,7 @@ function addLog(entry: Omit<LogEntry, 'id'>): void {
 // FB Auto Reply Service
 // ============================================
 
-let fbState: FBAutoReplyState = {
+const fbState: FBAutoReplyState = {
   running: false,
   tabs: [],
   completed: 0,
@@ -62,7 +70,7 @@ async function scanFBTabs(): Promise<FBTab[]> {
   const tabs = await chrome.tabs.query({});
   const fbTabsFound = tabs.filter(t => t.url && isFacebookCommentUrl(t.url));
 
-  fbState.tabs = fbTabsFound.map((tab) => ({
+  fbState.tabs = fbTabsFound.map(tab => ({
     id: tab.id!,
     index: tab.index,
     title: tab.title || 'Facebook',
@@ -119,7 +127,10 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
   for (const tab of selectedPendingTabs) {
     if (fbAbort) {
-      logger.warn('FB Auto Reply: Stopped by user', { completed: fbState.completed, total: fbState.total });
+      logger.warn('FB Auto Reply: Stopped by user', {
+        completed: fbState.completed,
+        total: fbState.total,
+      });
       break;
     }
 
@@ -159,10 +170,16 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
           } catch (injectError) {
             const errMsg = injectError instanceof Error ? injectError.message : String(injectError);
             if (errMsg.includes('Cannot access') || errMsg.includes('not be scripted')) {
-              logger.error('FB Auto Reply: Cannot inject script (restricted page)', { tabId: tab.id });
+              logger.error('FB Auto Reply: Cannot inject script (restricted page)', {
+                tabId: tab.id,
+              });
               throw new Error('Cannot inject script on this page');
             }
-            logger.debug('FB Auto Reply: Script injection attempt failed', { tabId: tab.id, attempt, error: errMsg });
+            logger.debug('FB Auto Reply: Script injection attempt failed', {
+              tabId: tab.id,
+              attempt,
+              error: errMsg,
+            });
             if (attempt < 3) {
               await new Promise(resolve => setTimeout(resolve, 500));
             }
@@ -180,7 +197,7 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
         const selectedTemplate = templates[randomTemplateIndex];
 
         // If there are multiple image URLs in the template, randomly select one
-        let templateToSend = { ...selectedTemplate };
+        const templateToSend = { ...selectedTemplate };
         if (templateToSend.imageUrls.length > 1) {
           const randomImageIndex = Math.floor(Math.random() * templateToSend.imageUrls.length);
           templateToSend.imageUrls = [templateToSend.imageUrls[randomImageIndex]];
@@ -190,13 +207,18 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
           templateIndex: randomTemplateIndex,
           totalTemplates: templates.length,
           message: templateToSend.message.substring(0, 50),
-          imageUrls: templateToSend.imageUrls
+          imageUrls: templateToSend.imageUrls,
         });
 
         let response = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, template: templateToSend, attempt });
+            logger.debug('FB Auto Reply: Sending reply message', {
+              tabId: tab.id,
+              steps,
+              template: templateToSend,
+              attempt,
+            });
             response = await chrome.tabs.sendMessage(tab.id, {
               type: 'FB_AUTO_REPLY',
               payload: { template: templateToSend, steps },
@@ -204,7 +226,11 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
             break;
           } catch (sendError) {
             const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
-            logger.warn('FB Auto Reply: Message send failed', { tabId: tab.id, attempt, error: errMsg });
+            logger.warn('FB Auto Reply: Message send failed', {
+              tabId: tab.id,
+              attempt,
+              error: errMsg,
+            });
             if (attempt < 3) {
               try {
                 await chrome.scripting.executeScript({
@@ -275,7 +301,10 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
   broadcastState();
 
   if (!fbAbort) {
-    logger.info(`FB Auto Reply: ${actionDesc} completed`, { completed: fbState.completed, total: fbState.total });
+    logger.info(`FB Auto Reply: ${actionDesc} completed`, {
+      completed: fbState.completed,
+      total: fbState.total,
+    });
   }
 }
 
@@ -319,7 +348,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
   const url = sender.tab?.url;
 
   switch (message.type) {
-    case 'LOG_ENTRY':
+    case 'LOG_ENTRY': {
       // Add tab info for content script logs
       const logPayload = {
         ...message.payload,
@@ -329,6 +358,7 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
       addLog(logPayload);
       sendResponse({ success: true } as MessageResponse);
       break;
+    }
 
     case 'GET_LOGS':
       sendResponse({ success: true, data: logState.logs } as MessageResponse<LogEntry[]>);

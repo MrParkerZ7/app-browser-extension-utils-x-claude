@@ -1,5 +1,5 @@
 // FB Auto Reply tabs rendering and UI updates
-import { fbState, fbActions, getActionLabel } from './state';
+import { fbState, getActionLabel } from './state';
 
 // Status display
 export function showFBStatus(message: string, type: 'error' | 'info' | 'warning'): void {
@@ -133,12 +133,12 @@ export function renderFBTabs(): void {
 
   // Add checkbox event listeners - send to background
   listEl.querySelectorAll('.fb-tab-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
+    checkbox.addEventListener('change', e => {
       const target = e.target as HTMLInputElement;
       const tabId = parseInt(target.dataset.tabId || '0', 10);
       chrome.runtime.sendMessage({
         type: 'FB_SELECT_TAB',
-        payload: { tabId, selected: target.checked }
+        payload: { tabId, selected: target.checked },
       });
     });
   });

@@ -1,245 +1,309 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser Extension</title>
-</head>
-<body>
-  <div class="header">
-    <div class="header-title">
-      <span>Browser Extension</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browser Extension</title>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-title">
+        <span>Browser Extension</span>
+      </div>
+      <div class="header-actions">
+        <button id="openWindowBtn" class="btn-open-window" title="Open in larger window">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="header-actions">
-      <button id="openWindowBtn" class="btn-open-window" title="Open in larger window">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>
-      </button>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="tab-logging">Logging</button>
+      <button class="tab" data-tab="tab-css-counter">HTML Counter</button>
+      <button class="tab" data-tab="tab-fb-reply">FB Auto Reply</button>
     </div>
-  </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="tab-logging">Logging</button>
-    <button class="tab" data-tab="tab-css-counter">HTML Counter</button>
-    <button class="tab" data-tab="tab-fb-reply">FB Auto Reply</button>
-  </div>
-
-  <div class="content">
-    <!-- Logging Tab -->
-    <div id="tab-logging" class="tab-panel active">
-      <div class="log-toolbar">
-        <div class="log-filters">
-          <button class="filter-btn active" data-level="all">All</button>
-          <button class="filter-btn" data-level="debug">Debug</button>
-          <button class="filter-btn" data-level="info">Info</button>
-          <button class="filter-btn" data-level="warn">Warn</button>
-          <button class="filter-btn" data-level="error">Error</button>
-        </div>
-        <div class="log-filters">
-          <button class="filter-btn active" data-source="all">All Sources</button>
-          <button class="filter-btn" data-source="background">Background</button>
-          <button class="filter-btn" data-source="content">Content</button>
-          <button class="filter-btn" data-source="popup">Popup</button>
-        </div>
-        <input type="text" class="search-box" id="logSearch" placeholder="Search logs...">
-        <label class="auto-scroll-label">
-          <input type="checkbox" id="autoScroll" checked>
-          Auto-scroll
-        </label>
-        <div class="column-settings">
-          <button class="column-settings-btn" id="columnSettingsBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-            Columns
-          </button>
-          <div class="column-dropdown" id="columnDropdown">
-            <label><input type="checkbox" data-col="time" checked> Time</label>
-            <label><input type="checkbox" data-col="source" checked> Source</label>
-            <label><input type="checkbox" data-col="level" checked> Level</label>
-            <label><input type="checkbox" data-col="message" checked> Message</label>
-            <label><input type="checkbox" data-col="data" checked> Data</label>
-            <label><input type="checkbox" data-col="url" checked> URL</label>
-            <div class="column-dropdown-divider"></div>
-            <button id="resetTableSettings">Reset All Settings</button>
+    <div class="content">
+      <!-- Logging Tab -->
+      <div id="tab-logging" class="tab-panel active">
+        <div class="log-toolbar">
+          <div class="log-filters">
+            <button class="filter-btn active" data-level="all">All</button>
+            <button class="filter-btn" data-level="debug">Debug</button>
+            <button class="filter-btn" data-level="info">Info</button>
+            <button class="filter-btn" data-level="warn">Warn</button>
+            <button class="filter-btn" data-level="error">Error</button>
           </div>
-        </div>
-        <div class="log-actions">
-          <button class="btn btn-primary" id="refreshLogs">Refresh</button>
-          <button class="btn btn-danger" id="clearLogs">Clear Logs</button>
-        </div>
-      </div>
-      <div class="log-toolbar" style="padding-top: 0;">
-        <div class="log-stats" id="logStats">
-          <span class="stat-item"><span class="stat-dot debug"></span> Debug: <span id="statDebug">0</span></span>
-          <span class="stat-item"><span class="stat-dot info"></span> Info: <span id="statInfo">0</span></span>
-          <span class="stat-item"><span class="stat-dot warn"></span> Warn: <span id="statWarn">0</span></span>
-          <span class="stat-item"><span class="stat-dot error"></span> Error: <span id="statError">0</span></span>
-          <span class="stat-item">Total: <span id="statTotal">0</span></span>
-        </div>
-      </div>
-      <div class="log-container" id="logContainer">
-        <table class="log-table">
-          <colgroup>
-            <col class="col-time" data-col="time">
-            <col class="col-source" data-col="source">
-            <col class="col-level" data-col="level">
-            <col class="col-message" data-col="message">
-            <col class="col-data" data-col="data">
-            <col class="col-url" data-col="url">
-          </colgroup>
-          <thead>
-            <tr>
-              <th data-col="time" data-sort="timestamp"><span class="th-content">Time<span class="sort-icon"></span></span></th>
-              <th data-col="source" data-sort="source"><span class="th-content">Source<span class="sort-icon"></span></span></th>
-              <th data-col="level" data-sort="level"><span class="th-content">Level<span class="sort-icon"></span></span></th>
-              <th data-col="message" data-sort="message"><span class="th-content">Message<span class="sort-icon"></span></span></th>
-              <th data-col="data"><span class="th-content">Data</span></th>
-              <th data-col="url" data-sort="url"><span class="th-content">URL<span class="sort-icon"></span></span></th>
-            </tr>
-          </thead>
-          <tbody id="logTableBody">
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CSS Counter Tab -->
-    <div id="tab-css-counter" class="tab-panel">
-      <div class="css-counter-container">
-        <div class="css-counter-header">
-          <h2>HTML Counter</h2>
-          <button class="btn btn-primary" id="recountBtn">Re-count All</button>
-        </div>
-        <div class="css-counter-status" id="cssStatus"></div>
-        <div class="search-list" id="searchList"></div>
-        <div class="add-search-row">
-          <button class="btn-icon btn-add" id="addSearchBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- FB Auto Reply Tab -->
-    <div id="tab-fb-reply" class="tab-panel">
-      <div class="fb-reply-container">
-        <div class="fb-reply-header">
-          <h2>FB Auto Reply</h2>
-        </div>
-        <p class="fb-reply-desc">Perform actions on Facebook comment tabs (URLs with comment_id).</p>
-
-        <div class="fb-reply-settings">
-          <label class="fb-reply-label">Reply steps to perform:</label>
-          <div class="fb-action-checkboxes">
-            <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbStepClickReply" checked />
-              <span>Click Reply button</span>
-            </label>
-            <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbStepInputText" checked />
-              <span>Input text</span>
-            </label>
-            <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbStepUploadImages" />
-              <span>Upload images</span>
-            </label>
-            <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbStepSubmit" checked />
-              <span>Submit reply</span>
-            </label>
+          <div class="log-filters">
+            <button class="filter-btn active" data-source="all">All Sources</button>
+            <button class="filter-btn" data-source="background">Background</button>
+            <button class="filter-btn" data-source="content">Content</button>
+            <button class="filter-btn" data-source="popup">Popup</button>
           </div>
-        </div>
-
-        <div class="fb-reply-settings">
-          <label class="fb-reply-label">After completion:</label>
-          <div class="fb-action-checkboxes">
-            <label class="fb-action-checkbox">
-              <input type="checkbox" id="fbActionClose" checked />
-              <span>Close tab</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="fb-reply-settings hidden" id="fbTemplateSettings">
-          <label class="fb-reply-label">Reply Templates (random per reply):</label>
-          <div class="fb-template-tabs">
-            <div class="fb-template-tabs-header" id="fbTemplateTabsHeader">
-              <!-- Tabs will be inserted here dynamically -->
+          <input type="text" class="search-box" id="logSearch" placeholder="Search logs..." />
+          <label class="auto-scroll-label">
+            <input type="checkbox" id="autoScroll" checked />
+            Auto-scroll
+          </label>
+          <div class="column-settings">
+            <button class="column-settings-btn" id="columnSettingsBtn">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              Columns
+            </button>
+            <div class="column-dropdown" id="columnDropdown">
+              <label><input type="checkbox" data-col="time" checked /> Time</label>
+              <label><input type="checkbox" data-col="source" checked /> Source</label>
+              <label><input type="checkbox" data-col="level" checked /> Level</label>
+              <label><input type="checkbox" data-col="message" checked /> Message</label>
+              <label><input type="checkbox" data-col="data" checked /> Data</label>
+              <label><input type="checkbox" data-col="url" checked /> URL</label>
+              <div class="column-dropdown-divider"></div>
+              <button id="resetTableSettings">Reset All Settings</button>
             </div>
           </div>
-          <div class="fb-template-content" id="fbTemplateContent">
-            <div class="fb-template-message" id="fbMessageSettings">
-              <label class="fb-reply-label-small">Message:</label>
-              <textarea
-                id="fbReplyMessage"
-                class="fb-reply-textarea"
-                placeholder="Enter your reply message..."
-                rows="3"
-              ></textarea>
+          <div class="log-actions">
+            <button class="btn btn-primary" id="refreshLogs">Refresh</button>
+            <button class="btn btn-danger" id="clearLogs">Clear Logs</button>
+          </div>
+        </div>
+        <div class="log-toolbar" style="padding-top: 0">
+          <div class="log-stats" id="logStats">
+            <span class="stat-item"
+              ><span class="stat-dot debug"></span> Debug: <span id="statDebug">0</span></span
+            >
+            <span class="stat-item"
+              ><span class="stat-dot info"></span> Info: <span id="statInfo">0</span></span
+            >
+            <span class="stat-item"
+              ><span class="stat-dot warn"></span> Warn: <span id="statWarn">0</span></span
+            >
+            <span class="stat-item"
+              ><span class="stat-dot error"></span> Error: <span id="statError">0</span></span
+            >
+            <span class="stat-item">Total: <span id="statTotal">0</span></span>
+          </div>
+        </div>
+        <div class="log-container" id="logContainer">
+          <table class="log-table">
+            <colgroup>
+              <col class="col-time" data-col="time" />
+              <col class="col-source" data-col="source" />
+              <col class="col-level" data-col="level" />
+              <col class="col-message" data-col="message" />
+              <col class="col-data" data-col="data" />
+              <col class="col-url" data-col="url" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th data-col="time" data-sort="timestamp">
+                  <span class="th-content">Time<span class="sort-icon"></span></span>
+                </th>
+                <th data-col="source" data-sort="source">
+                  <span class="th-content">Source<span class="sort-icon"></span></span>
+                </th>
+                <th data-col="level" data-sort="level">
+                  <span class="th-content">Level<span class="sort-icon"></span></span>
+                </th>
+                <th data-col="message" data-sort="message">
+                  <span class="th-content">Message<span class="sort-icon"></span></span>
+                </th>
+                <th data-col="data"><span class="th-content">Data</span></th>
+                <th data-col="url" data-sort="url">
+                  <span class="th-content">URL<span class="sort-icon"></span></span>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="logTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CSS Counter Tab -->
+      <div id="tab-css-counter" class="tab-panel">
+        <div class="css-counter-container">
+          <div class="css-counter-header">
+            <h2>HTML Counter</h2>
+            <button class="btn btn-primary" id="recountBtn">Re-count All</button>
+          </div>
+          <div class="css-counter-status" id="cssStatus"></div>
+          <div class="search-list" id="searchList"></div>
+          <div class="add-search-row">
+            <button class="btn-icon btn-add" id="addSearchBtn">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FB Auto Reply Tab -->
+      <div id="tab-fb-reply" class="tab-panel">
+        <div class="fb-reply-container">
+          <div class="fb-reply-header">
+            <h2>FB Auto Reply</h2>
+          </div>
+          <p class="fb-reply-desc">
+            Perform actions on Facebook comment tabs (URLs with comment_id).
+          </p>
+
+          <div class="fb-reply-settings">
+            <label class="fb-reply-label">Reply steps to perform:</label>
+            <div class="fb-action-checkboxes">
+              <label class="fb-action-checkbox">
+                <input type="checkbox" id="fbStepClickReply" checked />
+                <span>Click Reply button</span>
+              </label>
+              <label class="fb-action-checkbox">
+                <input type="checkbox" id="fbStepInputText" checked />
+                <span>Input text</span>
+              </label>
+              <label class="fb-action-checkbox">
+                <input type="checkbox" id="fbStepUploadImages" />
+                <span>Upload images</span>
+              </label>
+              <label class="fb-action-checkbox">
+                <input type="checkbox" id="fbStepSubmit" checked />
+                <span>Submit reply</span>
+              </label>
             </div>
-            <div class="fb-template-images hidden" id="fbImageSettings">
-              <label class="fb-reply-label-small">Image URLs (random per reply):</label>
-              <div class="fb-image-urls-list" id="fbImageUrlsList"></div>
-              <button class="btn btn-small btn-add-image" id="fbAddImageUrlBtn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Add Image URL
-              </button>
+          </div>
+
+          <div class="fb-reply-settings">
+            <label class="fb-reply-label">After completion:</label>
+            <div class="fb-action-checkboxes">
+              <label class="fb-action-checkbox">
+                <input type="checkbox" id="fbActionClose" checked />
+                <span>Close tab</span>
+              </label>
             </div>
           </div>
-        </div>
 
-        <div class="fb-reply-settings">
-          <label class="fb-reply-label">Delay between replies (ms):</label>
-          <div class="fb-delay-range">
-            <input type="number" id="fbReplyDelayMin" class="fb-reply-input fb-delay-input" value="1500" min="500" max="10000" />
-            <span class="fb-delay-separator">to</span>
-            <input type="number" id="fbReplyDelayMax" class="fb-reply-input fb-delay-input" value="3000" min="500" max="10000" />
-          </div>
-        </div>
-
-        <div class="fb-reply-status" id="fbReplyStatus"></div>
-
-        <div class="fb-reply-tabs" id="fbReplyTabs">
-          <div class="fb-tabs-header">
-            <div class="fb-reply-label">Facebook Tabs Found: <span id="fbTabCount">0</span> (Selected: <span id="fbSelectedCount">0</span>)</div>
-            <div class="fb-tabs-select-actions">
-              <button class="btn btn-small" id="fbSelectAllBtn">Select All</button>
-              <button class="btn btn-small" id="fbDeselectAllBtn">Deselect All</button>
+          <div class="fb-reply-settings hidden" id="fbTemplateSettings">
+            <label class="fb-reply-label">Reply Templates (random per reply):</label>
+            <div class="fb-template-tabs">
+              <div class="fb-template-tabs-header" id="fbTemplateTabsHeader">
+                <!-- Tabs will be inserted here dynamically -->
+              </div>
+            </div>
+            <div class="fb-template-content" id="fbTemplateContent">
+              <div class="fb-template-message" id="fbMessageSettings">
+                <label class="fb-reply-label-small">Message:</label>
+                <textarea
+                  id="fbReplyMessage"
+                  class="fb-reply-textarea"
+                  placeholder="Enter your reply message..."
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="fb-template-images hidden" id="fbImageSettings">
+                <label class="fb-reply-label-small">Image URLs (random per reply):</label>
+                <div class="fb-image-urls-list" id="fbImageUrlsList"></div>
+                <button class="btn btn-small btn-add-image" id="fbAddImageUrlBtn">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Add Image URL
+                </button>
+              </div>
             </div>
           </div>
-          <div class="fb-tabs-list" id="fbTabsList"></div>
-        </div>
 
-        <div class="fb-reply-actions">
-          <button class="btn btn-primary" id="fbScanTabsBtn">Scan Tabs</button>
-          <button class="btn btn-primary" id="fbStartReplyBtn" disabled>Start</button>
-          <button class="btn btn-danger" id="fbStopReplyBtn" style="display: none;">Stop</button>
-        </div>
-
-        <div class="fb-reply-progress" id="fbReplyProgress">
-          <div class="progress-bar">
-            <div class="progress-fill" id="fbProgressFill"></div>
+          <div class="fb-reply-settings">
+            <label class="fb-reply-label">Delay between replies (ms):</label>
+            <div class="fb-delay-range">
+              <input
+                type="number"
+                id="fbReplyDelayMin"
+                class="fb-reply-input fb-delay-input"
+                value="1500"
+                min="500"
+                max="10000"
+              />
+              <span class="fb-delay-separator">to</span>
+              <input
+                type="number"
+                id="fbReplyDelayMax"
+                class="fb-reply-input fb-delay-input"
+                value="3000"
+                min="500"
+                max="10000"
+              />
+            </div>
           </div>
-          <div class="progress-text" id="fbProgressText">0 / 0 completed</div>
+
+          <div class="fb-reply-status" id="fbReplyStatus"></div>
+
+          <div class="fb-reply-tabs" id="fbReplyTabs">
+            <div class="fb-tabs-header">
+              <div class="fb-reply-label">
+                Facebook Tabs Found: <span id="fbTabCount">0</span> (Selected:
+                <span id="fbSelectedCount">0</span>)
+              </div>
+              <div class="fb-tabs-select-actions">
+                <button class="btn btn-small" id="fbSelectAllBtn">Select All</button>
+                <button class="btn btn-small" id="fbDeselectAllBtn">Deselect All</button>
+              </div>
+            </div>
+            <div class="fb-tabs-list" id="fbTabsList"></div>
+          </div>
+
+          <div class="fb-reply-actions">
+            <button class="btn btn-primary" id="fbScanTabsBtn">Scan Tabs</button>
+            <button class="btn btn-primary" id="fbStartReplyBtn" disabled>Start</button>
+            <button class="btn btn-danger" id="fbStopReplyBtn" style="display: none">Stop</button>
+          </div>
+
+          <div class="fb-reply-progress" id="fbReplyProgress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="fbProgressFill"></div>
+            </div>
+            <div class="progress-text" id="fbProgressText">0 / 0 completed</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script src="index.js"></script>
-</body>
+    <script src="index.js"></script>
+  </body>
 </html>

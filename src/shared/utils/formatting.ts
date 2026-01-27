@@ -2,14 +2,18 @@
 
 export function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
-  return date.toLocaleString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }) + '.' + String(date.getMilliseconds()).padStart(3, '0');
+  return (
+    date.toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }) +
+    '.' +
+    String(date.getMilliseconds()).padStart(3, '0')
+  );
 }
 
 export function escapeHtml(text: string): string {

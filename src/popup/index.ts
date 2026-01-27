@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await setupFBAutoReply();
 
   // Log current tab info
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     if (tabs[0]) {
       logger.debug('Current tab', { url: tabs[0].url, title: tabs[0].title });
     }
