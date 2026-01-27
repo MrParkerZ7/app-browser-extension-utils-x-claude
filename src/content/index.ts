@@ -876,8 +876,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'FB_AUTO_REPLY') {
-    const replyMessage = message.payload?.message || '';
-    const imageUrls: string[] = message.payload?.imageUrls || [];
+    const template = message.payload?.template || { message: '', imageUrls: [] };
+    const replyMessage = template.message || '';
+    const imageUrls: string[] = template.imageUrls || [];
     const steps: FBReplySteps = message.payload?.steps || { clickReply: true, inputText: true, uploadImages: false, submitReply: true };
     performFBReply(replyMessage, imageUrls, steps).then(result => {
       sendResponse({ success: result.success, data: result, error: result.error });

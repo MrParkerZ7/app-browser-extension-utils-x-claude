@@ -83,7 +83,7 @@ async function scanFBTabs(): Promise<FBTab[]> {
 }
 
 async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
-  const { message, imageUrls, delayMin, delayMax, steps, doClose } = config;
+  const { templates, delayMin, delayMax, steps, doClose } = config;
 
   // Validate: at least one action must be selected
   const hasAnyStep = steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
@@ -92,15 +92,9 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
     return;
   }
 
-  // Only require message if inputText step is selected
-  if (steps.inputText && !message.trim()) {
-    logger.error('FB Auto Reply: No message provided');
-    return;
-  }
-
-  // Only require image URLs if uploadImages step is selected
-  if (steps.uploadImages && (!imageUrls || imageUrls.length === 0)) {
-    logger.error('FB Auto Reply: No image URLs provided');
+  // Validate templates if needed
+  if ((steps.inputText || steps.uploadImages) && (!templates || templates.length === 0)) {
+    logger.error('FB Auto Reply: No templates provided');
     return;
   }
 
@@ -116,7 +110,7 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
   logger.info(`FB Auto Reply: Starting ${actionDesc}`, {
     steps,
     doClose,
-    message: steps.inputText ? message : undefined,
+    templateCount: templates.length,
     delayRange: `${delayMin}-${delayMax}ms`,
     totalTabs: fbState.total,
   });
@@ -181,13 +175,31 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
       // Reply action (if any step is selected)
       if (hasAnyStep && actionSuccess) {
+        // Randomly select a template for this reply
+        const randomTemplateIndex = Math.floor(Math.random() * templates.length);
+        const selectedTemplate = templates[randomTemplateIndex];
+
+        // If there are multiple image URLs in the template, randomly select one
+        let templateToSend = { ...selectedTemplate };
+        if (templateToSend.imageUrls.length > 1) {
+          const randomImageIndex = Math.floor(Math.random() * templateToSend.imageUrls.length);
+          templateToSend.imageUrls = [templateToSend.imageUrls[randomImageIndex]];
+        }
+
+        logger.info('FB Auto Reply: Selected template', {
+          templateIndex: randomTemplateIndex,
+          totalTemplates: templates.length,
+          message: templateToSend.message.substring(0, 50),
+          imageUrls: templateToSend.imageUrls
+        });
+
         let response = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, message, imageUrls, attempt });
+            logger.debug('FB Auto Reply: Sending reply message', { tabId: tab.id, steps, template: templateToSend, attempt });
             response = await chrome.tabs.sendMessage(tab.id, {
               type: 'FB_AUTO_REPLY',
-              payload: { message, imageUrls, steps },
+              payload: { template: templateToSend, steps },
             });
             break;
           } catch (sendError) {

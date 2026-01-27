@@ -19,15 +19,13 @@ export async function scanFBTabs(): Promise<void> {
 }
 
 export async function startFBAutoReply(): Promise<void> {
-  const messageEl = document.getElementById('fbReplyMessage') as HTMLTextAreaElement;
   const delayMinEl = document.getElementById('fbReplyDelayMin') as HTMLInputElement;
   const delayMaxEl = document.getElementById('fbReplyDelayMax') as HTMLInputElement;
 
-  const message = messageEl.value.trim();
   const delayMin = parseInt(delayMinEl.value, 10) || 1500;
   const delayMax = parseInt(delayMaxEl.value, 10) || 3000;
   const steps = fbActions.steps;
-  const imageUrls = fbActions.imageUrls.filter(url => url.trim() !== '');
+  const templates = fbActions.templates;
   const doClose = fbActions.close;
 
   // Validate: at least one action must be selected
@@ -37,21 +35,28 @@ export async function startFBAutoReply(): Promise<void> {
     return;
   }
 
-  // Only require message if inputText step is selected
-  if (steps.inputText && !message) {
-    showFBStatus('Please enter a reply message.', 'error');
-    return;
-  }
+  // Validate templates if text or image steps are selected
+  if (steps.inputText || steps.uploadImages) {
+    const validTemplates = templates.filter(t => {
+      const hasMessage = !steps.inputText || t.message.trim() !== '';
+      const hasImages = !steps.uploadImages || t.imageUrls.some(url => url.trim() !== '');
+      return hasMessage && hasImages;
+    });
 
-  // Only require image URLs if uploadImages step is selected
-  if (steps.uploadImages && imageUrls.length === 0) {
-    showFBStatus('Please add at least one image URL.', 'error');
-    return;
+    if (validTemplates.length === 0) {
+      if (steps.inputText && steps.uploadImages) {
+        showFBStatus('Please add at least one template with message and image.', 'error');
+      } else if (steps.inputText) {
+        showFBStatus('Please add at least one template with a message.', 'error');
+      } else {
+        showFBStatus('Please add at least one template with an image URL.', 'error');
+      }
+      return;
+    }
   }
 
   const config: FBAutoReplyConfig = {
-    message,
-    imageUrls,
+    templates,
     delayMin,
     delayMax,
     steps,

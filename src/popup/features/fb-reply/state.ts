@@ -1,10 +1,11 @@
 // FB Auto Reply feature state management
-import { FBAutoReplyState, FBReplySteps } from '../../../shared/types';
+import { FBAutoReplyState, FBReplySteps, FBReplyTemplate } from '../../../shared/types';
 import { renderFBTabs, updateFBButtonStates, updateFBProgress, showFBStatus } from './tabs';
 
 export interface FBActions {
   steps: FBReplySteps;
-  imageUrls: string[];
+  templates: FBReplyTemplate[];
+  activeTemplateIndex: number;
   close: boolean;
 }
 
@@ -18,7 +19,8 @@ export let fbState: FBAutoReplyState = {
 
 export let fbActions: FBActions = {
   steps: { clickReply: true, inputText: true, uploadImages: false, submitReply: true },
-  imageUrls: [],
+  templates: [{ message: 'hello world', imageUrls: [] }],
+  activeTemplateIndex: 0,
   close: true,
 };
 

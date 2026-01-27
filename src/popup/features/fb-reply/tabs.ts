@@ -30,10 +30,20 @@ export function updateFBProgress(completed: number, total: number): void {
 }
 
 export function updateFBActionUI(): void {
+  const templateSettings = document.getElementById('fbTemplateSettings') as HTMLElement;
   const messageSettings = document.getElementById('fbMessageSettings') as HTMLElement;
   const imageSettings = document.getElementById('fbImageSettings') as HTMLElement;
   const stepInputText = document.getElementById('fbStepInputText') as HTMLInputElement;
   const stepUploadImages = document.getElementById('fbStepUploadImages') as HTMLInputElement;
+
+  const needsTemplates = stepInputText?.checked || stepUploadImages?.checked;
+
+  // Show template section when either input text or upload images is checked
+  if (needsTemplates) {
+    templateSettings.classList.remove('hidden');
+  } else {
+    templateSettings.classList.add('hidden');
+  }
 
   // Show message input only when input text step is checked
   if (stepInputText?.checked) {

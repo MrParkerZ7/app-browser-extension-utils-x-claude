@@ -91,12 +91,19 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 |-------|------|-------------|
 | `clickReply` | `boolean` | Whether to click the Reply button |
 | `inputText` | `boolean` | Whether to input the message text |
+| `uploadImages` | `boolean` | Whether to upload an image |
 | `submitReply` | `boolean` | Whether to submit the reply |
+
+#### FBReplyTemplate
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | `string` | Reply message text |
+| `imageUrls` | `string[]` | List of image URLs (one randomly selected per reply) |
 
 #### FBAutoReplyConfig
 | Field | Type | Description |
 |-------|------|-------------|
-| `message` | `string` | Reply message to post |
+| `templates` | `FBReplyTemplate[]` | List of reply templates (one randomly selected per reply) |
 | `delayMin` | `number` | Minimum delay between tabs (ms) |
 | `delayMax` | `number` | Maximum delay between tabs (ms) |
 | `steps` | `FBReplySteps` | Which reply steps to perform |
@@ -116,7 +123,7 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 **Content Script Messages:**
 | Type | Payload | Description |
 |------|---------|-------------|
-| `FB_AUTO_REPLY` | `{ message: string, steps: FBReplySteps }` | Request to post a reply with specified steps |
+| `FB_AUTO_REPLY` | `{ template: FBReplyTemplate, steps: FBReplySteps }` | Request to post a reply with template and steps |
 | `FB_AUTO_REPLY_RESULT` | `FBReplyResult` | Response with success/error |
 
 **Background Service Messages:**
@@ -171,7 +178,7 @@ Locates the specific comment element on the page using multiple strategies:
 3. **Data attribute search** - Look for `[data-ft*="ID"]` or `[data-commentid="ID"]`
 4. **Article search** - Search all `[role="article"]` elements containing the ID
 
-#### performFBReply(message: string, steps: FBReplySteps)
+#### performFBReply(message: string, imageUrls: string[], steps: FBReplySteps)
 
 Main automation function that posts a reply to a Facebook comment. Each step can be enabled/disabled independently for testing purposes.
 
@@ -188,7 +195,15 @@ Main automation function that posts a reply to a Facebook comment. Each step can
 3. If no @mention, extract profile name and insert manual @mention
 4. Type message after @mention
 
-**Step 3: Submit Reply** (if `steps.submitReply`)
+**Step 3: Upload Image** (if `steps.uploadImages`)
+1. Fetch image from URL (already randomly selected by background)
+2. Convert to File/Blob object
+3. Attempt paste via ClipboardEvent
+4. Fallback to DragEvent drop
+5. Fallback to file input element
+6. Wait up to 10 seconds for image attachment confirmation
+
+**Step 4: Submit Reply** (if `steps.submitReply`)
 1. Press Enter key to submit
 2. If Enter fails, find and click submit button
 
@@ -341,15 +356,25 @@ let fbAbort = false;
 │  Reply steps to perform:                                       │
 │  [✓] Click Reply button                                        │
 │  [✓] Input text                                                │
+│  [ ] Upload images                                             │
 │  [✓] Submit reply                                              │
 │                                                                │
 │  After completion:                                             │
 │  [✓] Close tab                                                 │
 │                                                                │
-│  Reply Message:                                                │
+│  Reply Templates (random per reply):                           │
+│  [+] [1] [2 ×] [3 ×]                                          │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ Enter your reply message here...                         │ │
+│  │ Message:                                                 │ │
+│  │ ┌──────────────────────────────────────────────────────┐ │ │
+│  │ │ Enter your reply message here...                     │ │ │
+│  │ └──────────────────────────────────────────────────────┘ │ │
 │  │                                                          │ │
+│  │ Image URLs (random per reply):                           │ │
+│  │ ┌────────────────────────────────────────────────┬────┐ │ │
+│  │ │ https://example.com/image1.jpg                 │ ×  │ │ │
+│  │ └────────────────────────────────────────────────┴────┘ │ │
+│  │ [+ Add Image URL]                                        │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                │
 │  Delay between replies (ms): [1500] to [3000]                  │
@@ -374,6 +399,7 @@ let fbAbort = false;
 
 **Note:** The "Stop" button is only visible when a job is running.
 **Note:** Uncheck steps to test individual parts of the reply flow without submitting.
+**Note:** Template tabs appear when "Input text" or "Upload images" is checked.
 
 #### Local State
 
@@ -464,19 +490,22 @@ Settings are persisted to `chrome.storage.local`:
 ```typescript
 // Keys for step checkboxes and settings
 chrome.storage.local.set({
-  fbReplyMessage: messageEl.value,
+  fbTemplates: templates,                    // Array of FBReplyTemplate
+  fbActiveTemplateIndex: activeTemplateIndex, // Currently selected tab
   fbReplyDelayMin: delayMinEl.value,
   fbReplyDelayMax: delayMaxEl.value,
   fbStepClickReply: stepClickReply.checked,
   fbStepInputText: stepInputText.checked,
+  fbStepUploadImages: stepUploadImages.checked,
   fbStepSubmit: stepSubmit.checked,
   fbActionClose: closeCheckbox.checked
 });
 
 // Restored on popup open
 const stored = await chrome.storage.local.get([
-  'fbReplyMessage', 'fbReplyDelayMin', 'fbReplyDelayMax',
-  'fbStepClickReply', 'fbStepInputText', 'fbStepSubmit', 'fbActionClose'
+  'fbTemplates', 'fbActiveTemplateIndex',
+  'fbReplyDelayMin', 'fbReplyDelayMax',
+  'fbStepClickReply', 'fbStepInputText', 'fbStepUploadImages', 'fbStepSubmit', 'fbActionClose'
 ]);
 ```
 
@@ -544,6 +573,42 @@ When no submit button is found after typing:
 
 **User Feedback:** Warning logged, attempts keyboard submission
 
+## Reply Templates
+
+The extension supports multiple reply templates. For each reply, one template is randomly selected, providing variety in automated responses.
+
+### Template Structure
+
+Each template contains:
+- **Message**: The text to post as a reply
+- **Image URLs**: A list of image URLs (one randomly selected per reply)
+
+### Template Tabs UI
+
+```
+[+] [1] [2 ×] [3 ×]
+```
+
+- **[+]** - Add new template (on the left)
+- **[1]** - Template 1 (active, no remove button if only one template)
+- **[2 ×]** - Template 2 with remove button
+- **[3 ×]** - Template 3 with remove button
+
+### Random Selection Logic
+
+1. **Per Reply**: One template is randomly selected from the list
+2. **Per Image**: If the selected template has multiple image URLs, one is randomly selected
+
+Example with 3 templates:
+- Template 1: "Thanks!" + [img1.jpg, img2.jpg]
+- Template 2: "Great post!" + [img3.jpg]
+- Template 3: "Nice!" + []
+
+For each tab, the system might select:
+- Tab 1 → Template 2 → "Great post!" + img3.jpg
+- Tab 2 → Template 1 → "Thanks!" + img2.jpg (random from 2 images)
+- Tab 3 → Template 3 → "Nice!" (no image)
+
 ## Usage Examples
 
 | Scenario | Steps |
@@ -559,6 +624,9 @@ When no submit button is found after typing:
 | Retry failed tabs | Click "Scan Tabs" to refresh, then click start button |
 | Adjust timing | Set min and max delay values (500-10000ms) for random delay between tabs |
 | Close popup while running | The process continues in background; reopen popup to see progress |
+| Multiple reply variations | 1. Click [+] to add templates, 2. Enter different messages in each tab, 3. Run - one is randomly selected per reply |
+| Reply with images | 1. Check "Upload images", 2. Add image URLs, 3. Run - images are fetched and pasted into comment |
+| Random images | 1. Add multiple image URLs to a template, 2. Run - one image is randomly selected per reply |
 
 ### Valid URL Patterns
 
@@ -587,9 +655,10 @@ The extension supports both English and Vietnamese button/label detection:
 ## Future Enhancements
 
 - [ ] Skip already-replied comments detection
-- [ ] Custom message templates with variables
+- [x] Custom message templates with variables (implemented as template tabs)
 - [ ] Batch import URLs from file
 - [ ] Scheduled/delayed start
-- [ ] Per-tab custom messages
+- [x] Per-tab custom messages (implemented via random template selection)
 - [ ] Reply history/log export
 - [ ] Support for Facebook Messenger
+- [x] Image upload support (implemented with URL-based images)
