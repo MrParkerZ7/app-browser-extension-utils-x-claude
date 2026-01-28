@@ -39,6 +39,7 @@ export function useFBReply() {
     message: string;
     type: 'error' | 'info' | 'warning';
   } | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Define callbacks first (before useEffects that use them)
   const applyState = useCallback((newState: FBAutoReplyState) => {
@@ -82,6 +83,7 @@ export function useFBReply() {
         'fbStepUploadImages',
         'fbStepSubmit',
         'fbActionClose',
+        'fbReplySectionCollapsed',
       ])
       .then(stored => {
         const newActions = { ...DEFAULT_ACTIONS };
@@ -105,6 +107,8 @@ export function useFBReply() {
           newActions.steps.uploadImages = stored.fbStepUploadImages;
         if (stored.fbStepSubmit !== undefined) newActions.steps.submitReply = stored.fbStepSubmit;
         if (stored.fbActionClose !== undefined) newActions.doClose = stored.fbActionClose;
+        if (stored.fbReplySectionCollapsed !== undefined)
+          setIsCollapsed(stored.fbReplySectionCollapsed);
 
         setActions(newActions);
       });
@@ -274,10 +278,17 @@ export function useFBReply() {
     return 'Start';
   }, [actions]);
 
+  const toggleCollapsed = useCallback(() => {
+    const newValue = !isCollapsed;
+    setIsCollapsed(newValue);
+    chrome.storage.local.set({ fbReplySectionCollapsed: newValue });
+  }, [isCollapsed]);
+
   return {
     state,
     actions,
     status,
+    isCollapsed,
     scanTabs,
     startAutoReply,
     stopAutoReply,
@@ -290,6 +301,7 @@ export function useFBReply() {
     updateTemplates,
     setActiveTemplateIndex,
     getActionLabel,
+    toggleCollapsed,
     showStatus,
     hideStatus,
   };

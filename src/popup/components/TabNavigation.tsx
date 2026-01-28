@@ -8,7 +8,7 @@ interface TabNavigationProps {
 const TABS: { id: TabId; label: string }[] = [
   { id: 'tab-logging', label: 'Logging' },
   { id: 'tab-css-counter', label: 'HTML Counter' },
-  { id: 'tab-fb-reply', label: 'FB Auto Reply' },
+  { id: 'tab-fb-reply', label: 'FB Auto' },
 ];
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
