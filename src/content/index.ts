@@ -253,8 +253,8 @@ if (!alreadyInitialized) {
       if (!text || text.length < 2 || text.length > 60) continue;
       if (href.includes('comment_id') || href.includes('reply_comment_id')) continue;
       if (href.includes('/photos/') || href.includes('/videos/')) continue;
-      if (text.match(/^\d+\s*(h|m|d|w|phút|giờ|ngày)/i)) continue; // Timestamps
-      if (text.match(/^(Like|Reply|Thích|Phản hồi|Trả lời|See more|Xem thêm)$/i)) continue;
+      if (text.match(/^\d+\s*(h|m|d|w|ชม\.|นาที|วัน|สัปดาห์)/i)) continue; // Timestamps
+      if (text.match(/^(Like|Reply|See more|ถูกใจ|ตอบกลับ|ดูเพิ่มเติม)$/i)) continue;
 
       // Must contain at least one letter (any language)
       if (!/[\p{L}]/u.test(text)) continue;
@@ -382,14 +382,12 @@ if (!alreadyInitialized) {
           const text = btn.textContent?.toLowerCase().trim() || '';
           const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
 
-          // Match reply button text (English and Vietnamese)
+          // Match reply button text (English and Thai)
           if (
             text === 'reply' ||
-            text === 'phản hồi' ||
-            text === 'trả lời' ||
+            text === 'ตอบกลับ' ||
             ariaLabel.includes('reply') ||
-            ariaLabel.includes('phản hồi') ||
-            ariaLabel.includes('trả lời')
+            ariaLabel.includes('ตอบกลับ')
           ) {
             const htmlBtn = btn as HTMLElement;
             // Make sure it's visible
@@ -414,7 +412,7 @@ if (!alreadyInitialized) {
             const btns = Array.from(parentContainer.querySelectorAll('[role="button"], span, a'));
             for (const btn of btns) {
               const text = btn.textContent?.toLowerCase().trim() || '';
-              if (text === 'reply' || text === 'phản hồi' || text === 'trả lời') {
+              if (text === 'reply' || text === 'ตอบกลับ') {
                 const htmlBtn = btn as HTMLElement;
                 if (htmlBtn.offsetParent !== null || htmlBtn.offsetHeight > 0) {
                   simulateClick(htmlBtn);
@@ -434,7 +432,7 @@ if (!alreadyInitialized) {
           const allReplyButtons = Array.from(document.querySelectorAll('[role="button"], span, a'));
           for (const btn of allReplyButtons) {
             const text = btn.textContent?.toLowerCase().trim() || '';
-            if (text === 'reply' || text === 'phản hồi' || text === 'trả lời') {
+            if (text === 'reply' || text === 'ตอบกลับ') {
               const htmlBtn = btn as HTMLElement;
               if (htmlBtn.offsetParent !== null || htmlBtn.offsetHeight > 0) {
                 // If we have a target comment, check if this reply button is near it
@@ -481,6 +479,9 @@ if (!alreadyInitialized) {
           '[aria-label*="Reply" i][contenteditable="true"]',
           '[aria-label*="comment" i][contenteditable="true"]',
           '[aria-label*="Write" i][contenteditable="true"]',
+          '[aria-label*="ตอบกลับ"][contenteditable="true"]',
+          '[aria-label*="ความคิดเห็น"][contenteditable="true"]',
+          '[aria-label*="เขียน"][contenteditable="true"]',
           'div[contenteditable="true"]',
         ];
 
@@ -978,11 +979,7 @@ if (!alreadyInitialized) {
     await wait(1000);
 
     // Method 1: Direct aria-label selector (most reliable for Facebook's button)
-    const ariaLabels = [
-      'See previous notifications',
-      'Xem thông báo trước đó',
-      'Xem các thông báo trước',
-    ];
+    const ariaLabels = ['See previous notifications', 'ดูการแจ้งเตือนก่อนหน้า'];
 
     let foundButton = false;
 
@@ -1016,9 +1013,7 @@ if (!alreadyInitialized) {
         'see earlier notifications',
         'see previous',
         'see earlier',
-        'xem thông báo trước đó',
-        'xem thông báo cũ hơn',
-        'xem các thông báo trước',
+        'ดูการแจ้งเตือนก่อนหน้า',
       ];
 
       const buttons = document.querySelectorAll('[role="button"]');
@@ -1183,8 +1178,8 @@ if (!alreadyInitialized) {
   async function clickMarkAllAsRead(): Promise<void> {
     logger.info('FB Notifications: Looking for Mark all as read button');
 
-    // Common aria-labels for the mark all as read button
-    const ariaLabels = ['Mark all as read', 'Đánh dấu tất cả là đã đọc', 'Đánh dấu tất cả đã đọc'];
+    // Common aria-labels for the mark all as read button (English and Thai)
+    const ariaLabels = ['Mark all as read', 'ทำเครื่องหมายว่าอ่านทั้งหมดแล้ว'];
 
     // Method 1: Find by aria-label
     for (const ariaLabel of ariaLabels) {
@@ -1202,8 +1197,8 @@ if (!alreadyInitialized) {
       }
     }
 
-    // Method 2: Find by text content
-    const buttonTexts = ['mark all as read', 'đánh dấu tất cả là đã đọc', 'đánh dấu tất cả đã đọc'];
+    // Method 2: Find by text content (English and Thai)
+    const buttonTexts = ['mark all as read', 'ทำเครื่องหมายว่าอ่านทั้งหมดแล้ว'];
     const buttons = document.querySelectorAll('[role="button"]');
 
     for (const el of Array.from(buttons)) {
@@ -1243,16 +1238,16 @@ if (!alreadyInitialized) {
 
     if (
       lowerText.includes('mentioned you') ||
-      lowerText.includes('đã nhắc đến bạn') ||
       lowerText.includes('tagged you') ||
-      lowerText.includes('đã gắn thẻ bạn')
+      lowerText.includes('กล่าวถึงคุณ') ||
+      lowerText.includes('แท็กคุณ')
     ) {
       matchType = 'mention';
     } else if (
       lowerText.includes('replied to') ||
-      lowerText.includes('đã trả lời') ||
       lowerText.includes('replied to your comment') ||
-      lowerText.includes('đã phản hồi')
+      lowerText.includes('ตอบกลับ') ||
+      lowerText.includes('ตอบความคิดเห็น')
     ) {
       matchType = 'reply';
     }
