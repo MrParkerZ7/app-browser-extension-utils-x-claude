@@ -772,7 +772,7 @@ if (!alreadyInitialized) {
               photoButton.click();
               await wait(300);
 
-              // Look for a file input - only search within parent scope to avoid root post input
+              // Look for a file input - try multiple search scopes
               const fileInputSelectors = [
                 'input[type="file"][accept*="image"]',
                 'input[type="file"][accept*="video"]',
@@ -780,10 +780,25 @@ if (!alreadyInitialized) {
                 'input[type="file"]',
               ];
 
-              // Search only in parent (comment box area), NOT in document to avoid root post
+              // Try searching in multiple scopes, from most specific to broader
+              const searchScopes = [
+                parent, // Comment box area
+                photoButton.closest('form'), // Form containing photo button
+                photoButton.parentElement?.parentElement?.parentElement, // Near photo button
+              ].filter(Boolean) as Element[];
+
               let fileInput: HTMLInputElement | null = null;
-              for (const selector of fileInputSelectors) {
-                fileInput = parent.querySelector(selector) as HTMLInputElement | null;
+              for (const scope of searchScopes) {
+                for (const selector of fileInputSelectors) {
+                  fileInput = scope.querySelector(selector) as HTMLInputElement | null;
+                  if (fileInput) {
+                    logger.debug('Found file input in scope', {
+                      scopeTag: scope.tagName,
+                      selector,
+                    });
+                    break;
+                  }
+                }
                 if (fileInput) break;
               }
 
@@ -800,7 +815,7 @@ if (!alreadyInitialized) {
                 });
                 await wait(1000);
               } else {
-                logger.warn('No file input found in comment scope after clicking photo button');
+                logger.warn('No file input found in any scope after clicking photo button');
               }
             }
 
