@@ -13,6 +13,9 @@ npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier format
 npm run code-fix     # Run both lint:fix and format
 npm run code-check   # Run both lint and format checks
+npm test             # Run Jest tests
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
 ```
 
 ## Loading the Extension
