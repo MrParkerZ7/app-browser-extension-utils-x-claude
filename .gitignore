@@ -24,4 +24,7 @@ npm-debug.log*
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Test coverage
+coverage/
 /.claude/settings.local.json
