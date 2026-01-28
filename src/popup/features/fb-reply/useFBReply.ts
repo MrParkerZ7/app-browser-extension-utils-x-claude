@@ -40,6 +40,35 @@ export function useFBReply() {
     type: 'error' | 'info' | 'warning';
   } | null>(null);
 
+  // Define callbacks first (before useEffects that use them)
+  const applyState = useCallback((newState: FBAutoReplyState) => {
+    setState(prevState => {
+      const wasRunning = prevState.running;
+
+      // Show status messages based on state changes
+      if (newState.running && !wasRunning) {
+        setStatus({ message: 'Running...', type: 'info' });
+      } else if (!newState.running && wasRunning) {
+        if (newState.completed > 0) {
+          setStatus({
+            message: `Completed. ${newState.completed}/${newState.total} successful.`,
+            type: 'info',
+          });
+        }
+      }
+
+      return newState;
+    });
+  }, []);
+
+  const showStatus = useCallback((message: string, type: 'error' | 'info' | 'warning') => {
+    setStatus({ message, type });
+  }, []);
+
+  const hideStatus = useCallback(() => {
+    setStatus(null);
+  }, []);
+
   // Load saved settings
   useEffect(() => {
     chrome.storage.local
@@ -85,13 +114,19 @@ export function useFBReply() {
   useEffect(() => {
     sendMessage({ type: 'FB_GET_STATE' }).then(response => {
       if (response?.success && response.data) {
-        applyState(response.data as FBAutoReplyState);
+        const currentState = response.data as FBAutoReplyState;
+        applyState(currentState);
+
+        // Only scan tabs if not currently running (to avoid resetting progress)
+        if (!currentState.running) {
+          sendMessage({ type: 'FB_SCAN_TABS' });
+        }
+      } else {
+        // No state yet, do initial scan
+        sendMessage({ type: 'FB_SCAN_TABS' });
       }
     });
-
-    // Initial scan if not running
-    sendMessage({ type: 'FB_SCAN_TABS' });
-  }, []);
+  }, [applyState]);
 
   // Listen for state updates from background
   useEffect(() => {
@@ -103,35 +138,7 @@ export function useFBReply() {
 
     chrome.runtime.onMessage.addListener(listener);
     return () => chrome.runtime.onMessage.removeListener(listener);
-  }, []);
-
-  const applyState = useCallback((newState: FBAutoReplyState) => {
-    setState(prevState => {
-      const wasRunning = prevState.running;
-
-      // Show status messages based on state changes
-      if (newState.running && !wasRunning) {
-        setStatus({ message: 'Running...', type: 'info' });
-      } else if (!newState.running && wasRunning) {
-        if (newState.completed > 0) {
-          setStatus({
-            message: `Completed. ${newState.completed}/${newState.total} successful.`,
-            type: 'info',
-          });
-        }
-      }
-
-      return newState;
-    });
-  }, []);
-
-  const showStatus = useCallback((message: string, type: 'error' | 'info' | 'warning') => {
-    setStatus({ message, type });
-  }, []);
-
-  const hideStatus = useCallback(() => {
-    setStatus(null);
-  }, []);
+  }, [applyState]);
 
   // Actions
   const scanTabs = useCallback(async () => {
