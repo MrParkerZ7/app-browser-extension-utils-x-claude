@@ -1184,11 +1184,7 @@ if (!alreadyInitialized) {
     logger.info('FB Notifications: Looking for Mark all as read button');
 
     // Common aria-labels for the mark all as read button
-    const ariaLabels = [
-      'Mark all as read',
-      'Đánh dấu tất cả là đã đọc',
-      'Đánh dấu tất cả đã đọc',
-    ];
+    const ariaLabels = ['Mark all as read', 'Đánh dấu tất cả là đã đọc', 'Đánh dấu tất cả đã đọc'];
 
     // Method 1: Find by aria-label
     for (const ariaLabel of ariaLabels) {
