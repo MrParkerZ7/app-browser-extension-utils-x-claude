@@ -772,7 +772,7 @@ if (!alreadyInitialized) {
               photoButton.click();
               await wait(300);
 
-              // Look for a file input - try multiple selectors
+              // Look for a file input - only search within parent scope to avoid root post input
               const fileInputSelectors = [
                 'input[type="file"][accept*="image"]',
                 'input[type="file"][accept*="video"]',
@@ -780,10 +780,10 @@ if (!alreadyInitialized) {
                 'input[type="file"]',
               ];
 
+              // Search only in parent (comment box area), NOT in document to avoid root post
               let fileInput: HTMLInputElement | null = null;
               for (const selector of fileInputSelectors) {
-                fileInput = (parent.querySelector(selector) ||
-                  document.querySelector(selector)) as HTMLInputElement | null;
+                fileInput = parent.querySelector(selector) as HTMLInputElement | null;
                 if (fileInput) break;
               }
 
@@ -800,7 +800,7 @@ if (!alreadyInitialized) {
                 });
                 await wait(1000);
               } else {
-                logger.warn('No file input found after clicking photo button');
+                logger.warn('No file input found in comment scope after clicking photo button');
               }
             }
 
