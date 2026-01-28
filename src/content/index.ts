@@ -735,10 +735,13 @@ if (!alreadyInitialized) {
             const photoButtonSelectors = [
               '[aria-label*="photo" i]',
               '[aria-label*="image" i]',
-              '[aria-label*="hình ảnh" i]',
-              '[aria-label*="ảnh" i]',
+              '[aria-label*="attach" i]',
+              '[aria-label*="รูปภาพ"]', // Thai: photo/image
+              '[aria-label*="ภาพ"]', // Thai: picture
+              '[aria-label*="แนบ"]', // Thai: attach
               '[data-testid*="photo"]',
               '[data-testid*="image"]',
+              '[data-testid*="media-attachment"]',
             ];
 
             let photoButton: HTMLElement | null = null;
@@ -764,18 +767,40 @@ if (!alreadyInitialized) {
 
             if (photoButton) {
               logger.info('Found photo button, attempting to use file input');
-              // Look for a file input nearby
-              const fileInput = parent.querySelector(
-                'input[type="file"][accept*="image"]'
-              ) as HTMLInputElement;
+
+              // Click the photo button first to potentially reveal file input
+              photoButton.click();
+              await wait(300);
+
+              // Look for a file input - try multiple selectors
+              const fileInputSelectors = [
+                'input[type="file"][accept*="image"]',
+                'input[type="file"][accept*="video"]',
+                'input[type="file"][multiple]',
+                'input[type="file"]',
+              ];
+
+              let fileInput: HTMLInputElement | null = null;
+              for (const selector of fileInputSelectors) {
+                fileInput = (parent.querySelector(selector) ||
+                  document.querySelector(selector)) as HTMLInputElement | null;
+                if (fileInput) break;
+              }
+
               if (fileInput) {
                 // Set the file to the input
                 dataTransfer.items.clear();
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
                 fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-                logger.info('Set file to file input');
+                fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+                logger.info('Set file to file input', {
+                  inputAccept: fileInput.accept,
+                  inputName: fileInput.name,
+                });
                 await wait(1000);
+              } else {
+                logger.warn('No file input found after clicking photo button');
               }
             }
 
@@ -807,7 +832,8 @@ if (!alreadyInitialized) {
                   '[data-testid*="photo"]',
                   '[aria-label*="photo" i][aria-label*="attached" i]',
                   '[aria-label*="Remove" i][aria-label*="photo" i]',
-                  '[aria-label*="Xóa" i]',
+                  '[aria-label*="Remove" i]',
+                  '[aria-label*="ลบ"]', // Thai: remove/delete
                   'div[role="img"]',
                   '[data-visualcompletion="media-vc-image"]',
                 ].join(', ')
