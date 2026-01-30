@@ -27,7 +27,7 @@ describe('useChromeMessageListener', () => {
     const handler = jest.fn();
     let registeredListener: (message: { type: string; payload?: unknown }) => void;
 
-    (chrome.runtime.onMessage.addListener as jest.Mock).mockImplementation((listener) => {
+    (chrome.runtime.onMessage.addListener as jest.Mock).mockImplementation(listener => {
       registeredListener = listener;
     });
 
@@ -45,7 +45,7 @@ describe('useChromeMessageListener', () => {
     const handler = jest.fn();
     let registeredListener: (message: { type: string; payload?: unknown }) => void;
 
-    (chrome.runtime.onMessage.addListener as jest.Mock).mockImplementation((listener) => {
+    (chrome.runtime.onMessage.addListener as jest.Mock).mockImplementation(listener => {
       registeredListener = listener;
     });
 

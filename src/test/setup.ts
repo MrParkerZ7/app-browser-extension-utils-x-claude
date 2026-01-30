@@ -18,13 +18,13 @@ const chromeMock = {
   },
   storage: {
     local: {
-      get: jest.fn().mockImplementation((keys) => {
+      get: jest.fn().mockImplementation(keys => {
         if (typeof keys === 'string') {
           return Promise.resolve({ [keys]: mockStorage[keys] });
         }
         if (Array.isArray(keys)) {
           const result: Record<string, unknown> = {};
-          keys.forEach((key) => {
+          keys.forEach(key => {
             if (mockStorage[key] !== undefined) {
               result[key] = mockStorage[key];
             }
@@ -33,17 +33,17 @@ const chromeMock = {
         }
         return Promise.resolve(mockStorage);
       }),
-      set: jest.fn().mockImplementation((items) => {
+      set: jest.fn().mockImplementation(items => {
         Object.assign(mockStorage, items);
         return Promise.resolve();
       }),
-      remove: jest.fn().mockImplementation((keys) => {
+      remove: jest.fn().mockImplementation(keys => {
         const keysArray = Array.isArray(keys) ? keys : [keys];
-        keysArray.forEach((key) => delete mockStorage[key]);
+        keysArray.forEach(key => delete mockStorage[key]);
         return Promise.resolve();
       }),
       clear: jest.fn().mockImplementation(() => {
-        Object.keys(mockStorage).forEach((key) => delete mockStorage[key]);
+        Object.keys(mockStorage).forEach(key => delete mockStorage[key]);
         return Promise.resolve();
       }),
     },
@@ -78,7 +78,7 @@ const chromeMock = {
 
 // Helper to reset mocks between tests
 export function resetChromeMocks() {
-  Object.keys(mockStorage).forEach((key) => delete mockStorage[key]);
+  Object.keys(mockStorage).forEach(key => delete mockStorage[key]);
   jest.clearAllMocks();
 }
 

@@ -73,9 +73,7 @@ describe('useChromeStorageMultiple', () => {
 
   it('should return initial values before loading', () => {
     const defaults = { key1: 'default1', key2: 'default2' };
-    const { result } = renderHook(() =>
-      useChromeStorageMultiple(['key1', 'key2'], defaults)
-    );
+    const { result } = renderHook(() => useChromeStorageMultiple(['key1', 'key2'], defaults));
 
     expect(result.current[0]).toEqual(defaults);
   });
@@ -84,9 +82,7 @@ describe('useChromeStorageMultiple', () => {
     setMockStorage({ key1: 'stored1', key2: 'stored2' });
 
     const defaults = { key1: 'default1', key2: 'default2' };
-    const { result } = renderHook(() =>
-      useChromeStorageMultiple(['key1', 'key2'], defaults)
-    );
+    const { result } = renderHook(() => useChromeStorageMultiple(['key1', 'key2'], defaults));
 
     await waitFor(() => {
       expect(result.current[0]).toEqual({ key1: 'stored1', key2: 'stored2' });
@@ -97,9 +93,7 @@ describe('useChromeStorageMultiple', () => {
     setMockStorage({ key1: 'stored1' });
 
     const defaults = { key1: 'default1', key2: 'default2' };
-    const { result } = renderHook(() =>
-      useChromeStorageMultiple(['key1', 'key2'], defaults)
-    );
+    const { result } = renderHook(() => useChromeStorageMultiple(['key1', 'key2'], defaults));
 
     await waitFor(() => {
       expect(result.current[0].key1).toBe('stored1');
@@ -109,9 +103,7 @@ describe('useChromeStorageMultiple', () => {
 
   it('should update values via partial object', async () => {
     const defaults = { key1: 'default1', key2: 'default2' };
-    const { result } = renderHook(() =>
-      useChromeStorageMultiple(['key1', 'key2'], defaults)
-    );
+    const { result } = renderHook(() => useChromeStorageMultiple(['key1', 'key2'], defaults));
 
     act(() => {
       result.current[1]({ key1: 'newValue' });
@@ -123,9 +115,7 @@ describe('useChromeStorageMultiple', () => {
 
   it('should preserve other values when updating one', async () => {
     const defaults = { key1: 'default1', key2: 'default2' };
-    const { result } = renderHook(() =>
-      useChromeStorageMultiple(['key1', 'key2'], defaults)
-    );
+    const { result } = renderHook(() => useChromeStorageMultiple(['key1', 'key2'], defaults));
 
     act(() => {
       result.current[1]({ key1: 'newValue' });

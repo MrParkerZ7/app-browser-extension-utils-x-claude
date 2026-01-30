@@ -39,11 +39,7 @@ describe('Logger', () => {
       const logger = createLogger('popup');
       logger.debug('Debug message', { extra: 'data' });
 
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        '[POPUP]',
-        'Debug message',
-        { extra: 'data' }
-      );
+      expect(consoleSpy.log).toHaveBeenCalledWith('[POPUP]', 'Debug message', { extra: 'data' });
     });
 
     it('should log info messages to console', () => {
