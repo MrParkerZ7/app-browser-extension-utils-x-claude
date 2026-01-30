@@ -57,9 +57,10 @@ npm run build
 ```bash
 npm run lint        # Check for linting errors
 npm run lint:fix    # Fix linting errors
-npm run format      # Format code with Prettier
-npm run code-fix    # Run both lint:fix and format
-npm run code-check  # Check both lint and format
+npm run format      # Check code formatting
+npm run format:fix  # Format code with Prettier
+npm run code:fix    # Run both lint:fix and format:fix
+npm run code:check  # Check both lint and format
 ```
 
 ### 🧪 Testing
