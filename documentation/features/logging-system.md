@@ -1,10 +1,10 @@
-# Logging System
+# 📊 Logging System
 
-## Overview
+## 📋 Overview
 
 Centralized logging system that captures, stores, and displays logs from all extension components (background service worker, content scripts, and popup) in a unified dashboard.
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -29,9 +29,9 @@ Centralized logging system that captures, stores, and displays logs from all ext
                                     └──────────────────┘
 ```
 
-## Components
+## 🧩 Components
 
-### Shared Types (`src/shared/types.ts`)
+### 📦 Shared Types (`src/shared/types.ts`)
 
 #### LogEntry
 | Field | Type | Description |
@@ -45,7 +45,7 @@ Centralized logging system that captures, stores, and displays logs from all ext
 | `tabId` | `number` | Browser tab ID (content scripts only) |
 | `url` | `string` | Page URL (content scripts only) |
 
-#### Message Types
+#### 📨 Message Types
 | Type | Direction | Description |
 |------|-----------|-------------|
 | `LOG_ENTRY` | → Background | Submit a new log entry |
@@ -53,7 +53,7 @@ Centralized logging system that captures, stores, and displays logs from all ext
 | `CLEAR_LOGS` | → Background | Delete all logs |
 | `LOGS_UPDATED` | ← Background | Broadcast log updates to popup |
 
-### Logger Utility (`src/shared/logger.ts`)
+### 🛠️ Logger Utility (`src/shared/logger.ts`)
 
 #### Usage
 ```typescript
@@ -75,7 +75,7 @@ logger.error('Failed to fetch', { status: 500, url: '/api' });
 | `warn(message, data?)` | warn | `console.warn` |
 | `error(message, data?)` | error | `console.error` |
 
-#### Helper Functions
+#### 🔧 Helper Functions
 ```typescript
 import { getLogs, clearLogs } from '../shared/logger';
 
@@ -83,7 +83,7 @@ const logs = await getLogs();    // Fetch all logs from background
 await clearLogs();               // Clear all logs
 ```
 
-### Background Service Worker (`src/background/index.ts`)
+### ⚙️ Background Service Worker (`src/background/index.ts`)
 
 **Responsibilities:**
 - Store logs in memory (max 1000 entries, FIFO)
@@ -99,7 +99,7 @@ const logState: LogState = {
 };
 ```
 
-### Content Script (`src/content/index.ts`)
+### 📜 Content Script (`src/content/index.ts`)
 
 **Auto-logged Events:**
 - Script initialization (with URL and title)
@@ -107,13 +107,13 @@ const logState: LogState = {
 - Uncaught errors (`window.onerror`)
 - Unhandled promise rejections
 
-### Popup Dashboard (`src/popup/popup.html`, `src/popup/index.ts`)
+### 🖥️ Popup Dashboard (`src/popup/popup.html`, `src/popup/index.ts`)
 
 **Size:**
 - **Popup mode:** 780 x 580 pixels (Chrome's max popup limit)
 - **Window mode:** Responsive, fills entire window (1280 x 800 default)
 
-**Layout:**
+**📐 Layout:**
 ```
 ┌────────────────────────────────────────────────┐
 │ Header: Browser Extension              [↗]     │
@@ -137,21 +137,21 @@ const logState: LogState = {
 └────────────────────────────────────────────────┘
 ```
 
-**Open in Window:**
+**🪟 Open in Window:**
 The ↗ button in the header opens the dashboard in a separate browser window (1280 x 800) for a larger workspace. Content automatically fills the window size.
 
-## Features
+## ✨ Features
 
-### Filtering
+### 🔍 Filtering
 - **By Level:** All, Debug, Info, Warn, Error
 - **By Source:** All Sources, Background, Content, Popup
 - **Search:** Filter by message, data, or URL (debounced 200ms)
 
-### Real-time Updates
+### ⚡ Real-time Updates
 - Logs appear instantly via `chrome.runtime.onMessage`
 - Auto-scroll option keeps latest logs visible
 
-### UI Elements
+### 🎨 UI Elements
 | Element | Description |
 |---------|-------------|
 | Time | Format: `MM/DD HH:mm:ss.ms` |
@@ -161,7 +161,7 @@ The ↗ button in the header opens the dashboard in a separate browser window (1
 | Data cell | Clickable, expands/collapses on click |
 | URL cell | Clickable, expands/collapses on click |
 
-### Expandable Cell Content
+### 📖 Expandable Cell Content
 Long content in Message, Data, and URL cells is truncated by default with an expand indicator (▶).
 
 **Behavior:**
@@ -177,7 +177,7 @@ Long content in Message, Data, and URL cells is truncated by default with an exp
 | Data | 40 |
 | URL | 30 |
 
-### Fixed Column Widths
+### 📏 Fixed Column Widths
 The log table uses fixed column widths via `<colgroup>` for consistent layout:
 
 | Column | Width |
@@ -191,7 +191,7 @@ The log table uses fixed column widths via `<colgroup>` for consistent layout:
 
 **Total table width:** 1200px (max)
 
-### Column Customization
+### 🎛️ Column Customization
 
 **Visibility (Hide/Show):**
 - Click "Columns" button in toolbar to open dropdown
@@ -213,7 +213,7 @@ The log table uses fixed column widths via `<colgroup>` for consistent layout:
 - Restores all columns to visible
 - Clears any active sorting
 
-### Actions
+### 🔘 Actions
 | Button | Action |
 |--------|--------|
 | ↗ Open in Window | Open dashboard in separate window (1280x800) |
@@ -222,9 +222,9 @@ The log table uses fixed column widths via `<colgroup>` for consistent layout:
 | Refresh | Reload logs from background |
 | Clear Logs | Delete all logs (with confirmation) |
 
-## Configuration
+## ⚙️ Configuration
 
-### Log Retention
+### 📦 Log Retention
 Default: 1000 entries (configurable in `background/index.ts`)
 
 ```typescript
@@ -234,7 +234,7 @@ const logState: LogState = {
 };
 ```
 
-## Future Enhancements
+## 🚀 Future Enhancements
 
 - [ ] Persist logs to `chrome.storage.local`
 - [ ] Export logs as JSON/CSV

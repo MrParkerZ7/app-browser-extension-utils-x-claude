@@ -1,10 +1,10 @@
-# HTML Counter
+# 🔢 HTML Counter
 
-## Overview
+## 📋 Overview
 
 HTML Counter is a tool that searches the current webpage for exact class matches and text matches. It supports multiple search queries simultaneously, with each search item displaying results inline.
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────┐          ┌─────────────────┐
@@ -28,9 +28,9 @@ HTML Counter is a tool that searches the current webpage for exact class matches
 └─────────────────┘                   │
 ```
 
-## Components
+## 🧩 Components
 
-### Shared Types (`src/shared/types.ts`)
+### 📦 Shared Types (`src/shared/types.ts`)
 
 #### CSSSearchResult
 | Field | Type | Description |
@@ -39,7 +39,7 @@ HTML Counter is a tool that searches the current webpage for exact class matches
 | `classes` | `number` | Elements with exact class match |
 | `textMatches` | `number` | Elements with exact text content match |
 
-### Content Script (`src/content/index.ts`)
+### 📜 Content Script (`src/content/index.ts`)
 
 #### searchCSS(query: string)
 
@@ -56,7 +56,7 @@ Performs exact match search on the current page:
    - Uses exact match comparison (`===`)
    - Trims whitespace before comparison
 
-#### Message Handler
+#### 📨 Message Handler
 
 ```typescript
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -68,9 +68,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 ```
 
-### Popup UI (`src/popup/popup.html`, `src/popup/index.ts`)
+### 🖥️ Popup UI (`src/popup/popup.html`, `src/popup/index.ts`)
 
-#### Layout
+#### 📐 Layout
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -94,7 +94,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 └────────────────────────────────────────────────────────────┘
 ```
 
-#### Features
+#### ✨ Features
 
 **Multiple Search Items:**
 - Each search has its own input field and inline results
@@ -121,7 +121,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 - "No active tab found" - No active tab
 - "Cannot search on browser internal pages" - chrome:// or about: pages
 
-## Storage
+## 💾 Storage
 
 Search items are persisted to `chrome.storage.local`:
 
@@ -136,7 +136,7 @@ chrome.storage.local.set({
 const { searchItems } = await chrome.storage.local.get('searchItems');
 ```
 
-## Permissions
+## 🔐 Permissions
 
 Required in `manifest.json`:
 
@@ -154,19 +154,19 @@ Required in `manifest.json`:
 - `tabs`: Query tab information
 - `scripting`: Programmatic script injection fallback
 
-## Error Handling
+## ⚠️ Error Handling
 
-### Extension Context Invalidated
+### 🔌 Extension Context Invalidated
 
 When the extension is reloaded, old content scripts become orphaned. Handled gracefully by checking context validity.
 
 **User Action Required:** Refresh the webpage to load the new content script.
 
-### Content Script Not Loaded
+### 📜 Content Script Not Loaded
 
 If the content script is not present, it will be injected programmatically before retrying the search.
 
-## Usage Examples
+## 📖 Usage Examples
 
 | Search Query | What It Finds |
 |--------------|---------------|
@@ -175,7 +175,7 @@ If the content script is not present, it will be injected programmatically befor
 | `Hello World` | Elements with exact text content "Hello World" |
 | `css-abc123-Container` | Elements with exact class `css-abc123-Container` |
 
-## Future Enhancements
+## 🚀 Future Enhancements
 
 - [ ] Highlight matching elements on page
 - [ ] Partial/fuzzy matching option

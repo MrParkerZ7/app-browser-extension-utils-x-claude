@@ -1,12 +1,12 @@
-# FB Auto Reply
+# 💬 FB Auto Reply
 
-## Overview
+## 📋 Overview
 
 FB Auto Reply is an automation tool that scans browser tabs for Facebook comment URLs and automatically posts a configurable reply message to each comment. It processes tabs sequentially with customizable delays between replies.
 
 **Key Feature:** The auto-reply process runs in the background service worker, so it continues even when the popup is closed.
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────┐
@@ -62,9 +62,9 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 └─────────────────────────┘                          │
 ```
 
-## Components
+## 🧩 Components
 
-### Shared Types (`src/shared/types.ts`)
+### 📦 Shared Types (`src/shared/types.ts`)
 
 #### FBReplyResult
 | Field | Type | Description |
@@ -118,7 +118,7 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 | `total` | `number` | Total number of tabs to process |
 | `currentTabId` | `number?` | ID of tab currently being processed |
 
-#### Message Types
+#### 📨 Message Types
 
 **Content Script Messages:**
 | Type | Payload | Description |
@@ -137,7 +137,7 @@ FB Auto Reply is an automation tool that scans browser tabs for Facebook comment
 | `FB_SELECT_TAB` | `{ tabId, selected }` | Toggle tab selection |
 | `FB_SELECT_ALL_TABS` | `{ selected }` | Select/deselect all tabs |
 
-### Content Script (`src/content/index.ts`)
+### 📜 Content Script (`src/content/index.ts`)
 
 #### getCommentIdsFromUrl()
 
@@ -278,11 +278,11 @@ const submitSelectors = [
 ];
 ```
 
-### Background Service Worker (`src/background/index.ts`)
+### ⚙️ Background Service Worker (`src/background/index.ts`)
 
 The background service worker is the main job runner. It maintains state and processes tabs even when the popup is closed.
 
-#### State Management
+#### 🗃️ State Management
 
 ```typescript
 let fbState: FBAutoReplyState = {
@@ -295,7 +295,7 @@ let fbState: FBAutoReplyState = {
 let fbAbort = false;
 ```
 
-#### Functions
+#### 🔧 Functions
 
 **isFacebookCommentUrl(url: string)**
 - Returns `true` if URL contains `facebook.com` AND `comment_id`
@@ -341,9 +341,9 @@ let fbAbort = false;
 **selectAllTabs(selected: boolean)**
 - Updates selection state for all tabs with `pending` status
 
-### Popup UI (`src/popup/popup.html`, `src/popup/index.ts`)
+### 🖥️ Popup UI (`src/popup/popup.html`, `src/popup/index.ts`)
 
-#### Layout
+#### 📐 Layout
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -401,7 +401,7 @@ let fbAbort = false;
 **Note:** Uncheck steps to test individual parts of the reply flow without submitting.
 **Note:** Template tabs appear when "Input text" or "Upload images" is checked.
 
-#### Local State
+#### 🗂️ Local State
 
 The popup maintains a local copy of the state that mirrors the background service worker:
 
@@ -416,7 +416,7 @@ let fbState: FBAutoReplyState = {
 
 This state is updated via `FB_STATE_UPDATE` messages from the background.
 
-#### Tab Status States
+#### 🏷️ Tab Status States
 
 | Status | Style | Description |
 |--------|-------|-------------|
@@ -425,7 +425,7 @@ This state is updated via `FB_STATE_UPDATE` messages from the background.
 | `done` | Green | Successfully replied and tab closed |
 | `error` | Red | Failed to reply |
 
-#### Functions
+#### 🔧 Functions
 
 All tab processing logic runs in the background service worker. The popup functions send messages to the background:
 
@@ -460,7 +460,7 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 ```
 
-#### UI Functions
+#### 🎨 UI Functions
 
 **updateFBButtonStates()**
 - Dynamically enables/disables buttons based on state:
@@ -483,7 +483,7 @@ chrome.runtime.onMessage.addListener((message) => {
 **updateFBStatus() / updateFBProgress()**
 - Updates status text and progress bar based on current state
 
-## Storage
+## 💾 Storage
 
 Settings are persisted to `chrome.storage.local`:
 
@@ -509,7 +509,7 @@ const stored = await chrome.storage.local.get([
 ]);
 ```
 
-## Permissions
+## 🔐 Permissions
 
 Required in `manifest.json`:
 
@@ -531,9 +531,9 @@ Required in `manifest.json`:
 - `scripting`: Inject content script into Facebook pages
 - `host_permissions`: Required for Facebook domain access
 
-## Error Handling
+## ⚠️ Error Handling
 
-### Content Script Injection Failed
+### 🔌 Content Script Injection Failed
 
 When the content script cannot be injected (e.g., restricted page):
 
@@ -541,7 +541,7 @@ When the content script cannot be injected (e.g., restricted page):
 
 **User Action:** Check if the tab is a valid Facebook page
 
-### Message Send Failed
+### 📡 Message Send Failed
 
 When the background cannot communicate with the content script:
 
@@ -549,7 +549,7 @@ When the background cannot communicate with the content script:
 
 **User Action:** Refresh the Facebook page and try again
 
-### Comment Element Not Found
+### 🔍 Comment Element Not Found
 
 When `findCommentById()` cannot locate the target comment:
 
@@ -557,7 +557,7 @@ When `findCommentById()` cannot locate the target comment:
 
 **User Feedback:** Warning logged, attempts to reply to any visible reply button
 
-### Reply Input Not Found
+### 📝 Reply Input Not Found
 
 When no comment input field is detected:
 
@@ -565,7 +565,7 @@ When no comment input field is detected:
 
 **User Action:** Check if Facebook UI has changed or if the page loaded correctly
 
-### Submit Button Not Found
+### 🔘 Submit Button Not Found
 
 When no submit button is found after typing:
 
@@ -573,17 +573,17 @@ When no submit button is found after typing:
 
 **User Feedback:** Warning logged, attempts keyboard submission
 
-## Reply Templates
+## 📝 Reply Templates
 
 The extension supports multiple reply templates. For each reply, one template is randomly selected, providing variety in automated responses.
 
-### Template Structure
+### 📄 Template Structure
 
 Each template contains:
 - **Message**: The text to post as a reply
 - **Image URLs**: A list of image URLs (one randomly selected per reply)
 
-### Template Tabs UI
+### 🗂️ Template Tabs UI
 
 ```
 [+] [1] [2 ×] [3 ×]
@@ -594,7 +594,7 @@ Each template contains:
 - **[2 ×]** - Template 2 with remove button
 - **[3 ×]** - Template 3 with remove button
 
-### Random Selection Logic
+### 🎲 Random Selection Logic
 
 1. **Per Reply**: One template is randomly selected from the list
 2. **Per Image**: If the selected template has multiple image URLs, one is randomly selected
@@ -609,7 +609,7 @@ For each tab, the system might select:
 - Tab 2 → Template 1 → "Thanks!" + img2.jpg (random from 2 images)
 - Tab 3 → Template 3 → "Nice!" (no image)
 
-## Usage Examples
+## 📖 Usage Examples
 
 | Scenario | Steps |
 |----------|-------|
@@ -628,7 +628,7 @@ For each tab, the system might select:
 | Reply with images | 1. Check "Upload images", 2. Add image URLs, 3. Run - images are fetched and pasted into comment |
 | Random images | 1. Add multiple image URLs to a template, 2. Run - one image is randomly selected per reply |
 
-### Valid URL Patterns
+### 🔗 Valid URL Patterns
 
 | URL Pattern | Detected | Target |
 |-------------|----------|--------|
@@ -643,7 +643,7 @@ For each tab, the system might select:
 - URL with only `comment_id` → Replies to that specific comment (ignores nested replies)
 - URL with `reply_comment_id` → Replies to that specific nested reply
 
-## Multi-Language Support
+## 🌐 Multi-Language Support
 
 The extension supports both English and Vietnamese button/label detection:
 
@@ -652,7 +652,7 @@ The extension supports both English and Vietnamese button/label detection:
 | English | Reply | Submit, Post, Send |
 | Vietnamese | Phản hồi, Trả lời | Gửi, Đăng |
 
-## Future Enhancements
+## 🚀 Future Enhancements
 
 - [ ] Skip already-replied comments detection
 - [x] Custom message templates with variables (implemented as template tabs)
