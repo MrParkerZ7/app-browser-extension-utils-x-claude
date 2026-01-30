@@ -60,6 +60,13 @@ npm run code-fix    # Run both lint:fix and format
 npm run code-check  # Check both lint and format
 ```
 
+### Testing
+```bash
+npm test             # Run Jest tests
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+```
+
 ## Installation
 
 1. Run `npm run build` to create the production build
@@ -75,6 +82,7 @@ src/
   content/          # Content scripts injected into pages
   popup/            # Extension popup UI
     features/       # Feature modules
+      fb-reply/          # FB Auto Reply feature
       fb-notif-listener/  # FB Notification Listener feature
   shared/           # Shared utilities and types
 ```
