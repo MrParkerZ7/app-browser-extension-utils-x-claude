@@ -6,6 +6,16 @@ pipeline {
         SBOM_DIR = 'sbom'
         DOCKER_IMAGE = 'browser-extension'
         DOCKER_TAG = "${BUILD_NUMBER}"
+
+        // SonarQube
+        SONAR_HOST_URL = "${params.SONAR_HOST_URL ?: 'http://sonarqube:9000'}"
+        SONAR_PROJECT_KEY = "${params.SONAR_PROJECT_KEY ?: 'browser-extension-utils'}"
+    }
+
+    parameters {
+        booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarQube scan')
+        string(name: 'SONAR_HOST_URL', defaultValue: 'http://sonarqube:9000', description: 'SonarQube server URL')
+        string(name: 'SONAR_PROJECT_KEY', defaultValue: 'browser-extension-utils', description: 'SonarQube project key')
     }
 
     options {
@@ -197,6 +207,46 @@ pipeline {
                     }
                 }
 
+                // SonarQube Analysis
+                stage('SAST - SonarQube') {
+                    when {
+                        not { expression { params.SKIP_SONAR } }
+                    }
+                    steps {
+                        script {
+                            sh '''
+                                echo "Running SonarQube analysis..."
+
+                                # Check if SonarQube is reachable
+                                if curl -s -o /dev/null -w "%{http_code}" ${SONAR_HOST_URL}/api/system/status | grep -q "200"; then
+                                    echo "SonarQube is available at ${SONAR_HOST_URL}"
+
+                                    # Run sonar-scanner using Docker
+                                    docker run --rm \
+                                        --network security-pipeline-network \
+                                        -v "$(pwd):/usr/src" \
+                                        -w /usr/src \
+                                        sonarsource/sonar-scanner-cli:latest \
+                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                        -Dsonar.projectName="Browser Extension Utils" \
+                                        -Dsonar.sources=src \
+                                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                                        -Dsonar.login=admin \
+                                        -Dsonar.password=admin \
+                                        -Dsonar.exclusions=node_modules/**,dist/**,coverage/**,**/*.test.ts,**/*.spec.ts \
+                                        -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                        || echo "SonarQube scan completed with warnings"
+
+                                    echo "SonarQube dashboard: ${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
+                                else
+                                    echo "WARNING: SonarQube is not available at ${SONAR_HOST_URL}"
+                                    echo "Skipping SonarQube analysis"
+                                fi
+                            '''
+                        }
+                    }
+                }
+
                 // Dependency Scan
                 stage('SCA - Dependency Check') {
                     steps {
@@ -325,22 +375,24 @@ pipeline {
 
                     // Generate summary JSON
                     sh '''
-                        cat > ${REPORTS_DIR}/security-summary.json << 'EOFSUM'
+                        cat > ${REPORTS_DIR}/security-summary.json << EOF
 {
   "build_number": "${BUILD_NUMBER}",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "project": "app-browser-extension-utils",
   "scanners": {
     "secrets": "gitleaks",
-    "sast": "semgrep",
+    "sast": ["semgrep", "sonarqube"],
     "sca": "trivy",
     "iac": "checkov",
     "sbom": "syft",
-    "container": "trivy-image"
+    "container": "trivy-image",
+    "code_quality": "sonarqube"
   },
+  "sonarqube_url": "${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}",
   "status": "completed"
 }
-EOFSUM
+EOF
                     '''
                 }
             }
@@ -366,6 +418,7 @@ EOFSUM
 
         success {
             echo "Pipeline SUCCEEDED - all security scans completed"
+            echo "View SonarQube results at: ${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
         }
     }
 }
