@@ -997,47 +997,31 @@ function addVideoLink(video: IDMVideoLink): void {
   }
 }
 
-function getExtensionFromUrl(url: string): string {
-  const lowerUrl = url.toLowerCase();
-  const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
-  for (const ext of extensions) {
-    if (lowerUrl.includes(`.${ext}`)) {
-      return ext;
-    }
-  }
-  return 'mp4';
-}
+const NATIVE_HOST_NAME = 'com.browser_extension.idm';
 
 function downloadWithIdm(url: string, downloadPath: string): void {
-  logger.info('IDM Listener: Starting download', { url, downloadPath });
+  logger.info('IDM Listener: Sending to IDM via native messaging', { url, downloadPath });
 
-  // Extract filename from URL
-  let filename = 'video';
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/').filter(p => p);
-    const lastPart = pathParts[pathParts.length - 1];
-    if (lastPart && lastPart.includes('.')) {
-      filename = decodeURIComponent(lastPart.split('?')[0]);
-    } else {
-      // Generate filename from timestamp
-      const ext = getExtensionFromUrl(url);
-      filename = `video_${Date.now()}.${ext}`;
-    }
-  } catch {
-    filename = `video_${Date.now()}.mp4`;
-  }
-
-  // Use Chrome's download API
-  chrome.downloads
-    .download({
+  // Send to native messaging host which will call IDM
+  chrome.runtime.sendNativeMessage(
+    NATIVE_HOST_NAME,
+    {
+      action: 'download',
       url: url,
-      filename: filename,
-      saveAs: false, // Set to true if you want "Save As" dialog
-    })
-    .then(downloadId => {
-      if (downloadId) {
-        logger.info('IDM Listener: Download started', { downloadId, filename, url });
+      downloadPath: downloadPath || undefined,
+    },
+    response => {
+      if (chrome.runtime.lastError) {
+        logger.error('IDM Listener: Native messaging error', {
+          error: chrome.runtime.lastError.message,
+          url,
+        });
+        // Don't mark as downloaded on error
+        return;
+      }
+
+      if (response?.success) {
+        logger.info('IDM Listener: Download sent to IDM', { url });
 
         // Mark as downloaded
         const video = idmState.videosFound.find(v => v.url === url);
@@ -1047,12 +1031,13 @@ function downloadWithIdm(url: string, downloadPath: string): void {
           broadcastIdmState();
         }
       } else {
-        logger.error('IDM Listener: Download failed - no download ID returned');
+        logger.error('IDM Listener: IDM download failed', {
+          error: response?.error,
+          url,
+        });
       }
-    })
-    .catch(err => {
-      logger.error('IDM Listener: Download failed', { error: String(err), url });
-    });
+    }
+  );
 }
 
 async function startIdmListener(config: IDMListenerConfig): Promise<void> {
