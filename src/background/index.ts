@@ -16,7 +16,6 @@ import {
   IDMListenerConfig,
   IDMListenerState,
   IDMVideoLink,
-  IDMScanResult,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -97,7 +96,10 @@ class TemplateSelector {
     this.shuffledOrder = this.templates.map((_, i) => i);
     for (let i = this.shuffledOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [this.shuffledOrder[i], this.shuffledOrder[j]] = [this.shuffledOrder[j], this.shuffledOrder[i]];
+      [this.shuffledOrder[i], this.shuffledOrder[j]] = [
+        this.shuffledOrder[j],
+        this.shuffledOrder[i],
+      ];
     }
     this.shuffledIndex = 0;
     logger.debug('FB Auto Reply: Shuffled template order', { order: this.shuffledOrder });
@@ -979,13 +981,6 @@ async function saveIdmConfig(config: IDMListenerConfig): Promise<void> {
   await chrome.storage.local.set({ idmConfig: config });
 }
 
-function isVideoUrl(url: string): boolean {
-  const lowerUrl = url.toLowerCase();
-  return idmConfig.videoExtensions.some(
-    ext => lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`/${ext}`) || lowerUrl.includes(`=${ext}`)
-  );
-}
-
 function addVideoLink(video: IDMVideoLink): void {
   // Check if already exists
   const exists = idmState.videosFound.some(v => v.url === video.url);
@@ -1058,16 +1053,6 @@ function downloadWithIdm(url: string, downloadPath: string): void {
     .catch(err => {
       logger.error('IDM Listener: Download failed', { error: String(err), url });
     });
-}
-
-function copyVideoUrl(url: string): Promise<boolean> {
-  // Copy URL to clipboard using offscreen document or content script
-  logger.info('IDM Listener: Copying URL to clipboard', { url });
-
-  return new Promise(resolve => {
-    // We'll handle this in the popup instead since clipboard API works better there
-    resolve(true);
-  });
 }
 
 async function startIdmListener(config: IDMListenerConfig): Promise<void> {
@@ -1409,7 +1394,8 @@ function extractTitleFromUrl(url: string, tabUrl?: string): string {
     const hostname = urlObj.hostname;
     if (hostname.includes('tiktok')) return 'TikTok Video';
     if (hostname.includes('facebook') || hostname.includes('fbcdn')) return 'Facebook Video';
-    if (hostname.includes('instagram') || hostname.includes('cdninstagram')) return 'Instagram Video';
+    if (hostname.includes('instagram') || hostname.includes('cdninstagram'))
+      return 'Instagram Video';
     if (hostname.includes('twitter') || hostname.includes('twimg')) return 'Twitter Video';
     if (hostname.includes('youtube') || hostname.includes('googlevideo')) return 'YouTube Video';
 
@@ -1424,7 +1410,11 @@ function getVideoTypeFromUrl(url: string): string {
   const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
 
   for (const ext of extensions) {
-    if (lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`/${ext}`) || lowerUrl.includes(`=${ext}`)) {
+    if (
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`/${ext}`) ||
+      lowerUrl.includes(`=${ext}`)
+    ) {
       return ext.toUpperCase();
     }
   }
