@@ -1002,33 +1002,72 @@ function addVideoLink(video: IDMVideoLink): void {
   }
 }
 
-function downloadWithIdm(url: string, downloadPath: string): void {
-  // IDM integration via custom protocol
-  // IDM registers idm:// protocol handler when installed
-  const idmUrl = `idm://download?url=${encodeURIComponent(url)}&path=${encodeURIComponent(downloadPath)}`;
-
-  logger.info('IDM Listener: Sending to IDM', { url, downloadPath });
-
-  // Try to open IDM via protocol handler
-  // Note: This requires IDM to be installed and the protocol handler registered
-  chrome.tabs.create({ url: idmUrl, active: false }).then(tab => {
-    // Close the tab after a short delay
-    setTimeout(() => {
-      if (tab.id) {
-        chrome.tabs.remove(tab.id).catch(() => {});
-      }
-    }, 1000);
-  }).catch(err => {
-    logger.error('IDM Listener: Failed to send to IDM', { error: String(err) });
-  });
-
-  // Mark as downloaded
-  const video = idmState.videosFound.find(v => v.url === url);
-  if (video) {
-    video.downloaded = true;
-    idmState.totalDownloaded++;
-    broadcastIdmState();
+function getExtensionFromUrl(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
+  for (const ext of extensions) {
+    if (lowerUrl.includes(`.${ext}`)) {
+      return ext;
+    }
   }
+  return 'mp4';
+}
+
+function downloadWithIdm(url: string, downloadPath: string): void {
+  logger.info('IDM Listener: Starting download', { url, downloadPath });
+
+  // Extract filename from URL
+  let filename = 'video';
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      filename = decodeURIComponent(lastPart.split('?')[0]);
+    } else {
+      // Generate filename from timestamp
+      const ext = getExtensionFromUrl(url);
+      filename = `video_${Date.now()}.${ext}`;
+    }
+  } catch {
+    filename = `video_${Date.now()}.mp4`;
+  }
+
+  // Use Chrome's download API
+  chrome.downloads
+    .download({
+      url: url,
+      filename: filename,
+      saveAs: false, // Set to true if you want "Save As" dialog
+    })
+    .then(downloadId => {
+      if (downloadId) {
+        logger.info('IDM Listener: Download started', { downloadId, filename, url });
+
+        // Mark as downloaded
+        const video = idmState.videosFound.find(v => v.url === url);
+        if (video) {
+          video.downloaded = true;
+          idmState.totalDownloaded++;
+          broadcastIdmState();
+        }
+      } else {
+        logger.error('IDM Listener: Download failed - no download ID returned');
+      }
+    })
+    .catch(err => {
+      logger.error('IDM Listener: Download failed', { error: String(err), url });
+    });
+}
+
+function copyVideoUrl(url: string): Promise<boolean> {
+  // Copy URL to clipboard using offscreen document or content script
+  logger.info('IDM Listener: Copying URL to clipboard', { url });
+
+  return new Promise(resolve => {
+    // We'll handle this in the popup instead since clipboard API works better there
+    resolve(true);
+  });
 }
 
 async function startIdmListener(config: IDMListenerConfig): Promise<void> {
@@ -1279,7 +1318,175 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
     logger.debug('Tab loaded', { tabId, url: tab.url });
+
+    // If IDM listener is running, inject content script and start observer
+    if (idmState.running && tab.url && !tab.url.startsWith('chrome://')) {
+      chrome.scripting
+        .executeScript({
+          target: { tabId },
+          files: ['content/index.js'],
+        })
+        .then(() => {
+          chrome.tabs.sendMessage(tabId, { type: 'IDM_START_OBSERVER' }).catch(() => {});
+        })
+        .catch(() => {
+          // Ignore errors for restricted tabs
+        });
+    }
   }
 });
+
+// ============================================
+// WebRequest listener for video URL interception
+// ============================================
+
+// Common video URL patterns to detect
+const videoUrlPatterns = [
+  // Direct video file extensions
+  /\.(mp4|webm|mkv|avi|mov|flv|m4v|3gp)/i,
+  // Streaming formats
+  /\.(m3u8|mpd|ts)/i,
+  // Common video CDN patterns
+  /\/video\/|\/videos?\//i,
+  /playback|stream|media/i,
+  // TikTok specific
+  /tiktokcdn.*video/i,
+  /v\d+\.tiktokcdn/i,
+  /muscdn.*video/i,
+  // YouTube (for reference, though blocked by CSP usually)
+  /googlevideo\.com.*videoplayback/i,
+  // Facebook/Instagram
+  /fbcdn.*video/i,
+  /cdninstagram.*video/i,
+  // Twitter/X
+  /video\.twimg/i,
+  // Generic video indicators
+  /mime.*video/i,
+  /content-type.*video/i,
+];
+
+function isNetworkVideoUrl(url: string): boolean {
+  // Skip blob URLs - they can't be downloaded externally
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
+    return false;
+  }
+
+  const lowerUrl = url.toLowerCase();
+
+  // Check against patterns
+  for (const pattern of videoUrlPatterns) {
+    if (pattern.test(lowerUrl)) {
+      return true;
+    }
+  }
+
+  // Also check configured extensions
+  return idmConfig.videoExtensions.some(
+    ext =>
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`/${ext}?`) ||
+      lowerUrl.includes(`format=${ext}`) ||
+      lowerUrl.includes(`mime=video/${ext}`)
+  );
+}
+
+function extractTitleFromUrl(url: string, tabUrl?: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+
+    // Try to get filename from path
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      const filename = decodeURIComponent(lastPart.split('?')[0]);
+      const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+      if (nameWithoutExt.length > 3) {
+        return nameWithoutExt;
+      }
+    }
+
+    // Try to identify the source
+    const hostname = urlObj.hostname;
+    if (hostname.includes('tiktok')) return 'TikTok Video';
+    if (hostname.includes('facebook') || hostname.includes('fbcdn')) return 'Facebook Video';
+    if (hostname.includes('instagram') || hostname.includes('cdninstagram')) return 'Instagram Video';
+    if (hostname.includes('twitter') || hostname.includes('twimg')) return 'Twitter Video';
+    if (hostname.includes('youtube') || hostname.includes('googlevideo')) return 'YouTube Video';
+
+    return tabUrl ? `Video from ${new URL(tabUrl).hostname}` : 'Video';
+  } catch {
+    return 'Video';
+  }
+}
+
+function getVideoTypeFromUrl(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
+
+  for (const ext of extensions) {
+    if (lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`/${ext}`) || lowerUrl.includes(`=${ext}`)) {
+      return ext.toUpperCase();
+    }
+  }
+
+  // Check for streaming indicators
+  if (lowerUrl.includes('m3u8') || lowerUrl.includes('hls')) return 'HLS';
+  if (lowerUrl.includes('mpd') || lowerUrl.includes('dash')) return 'DASH';
+
+  return 'VIDEO';
+}
+
+// Listen for web requests to intercept video URLs
+chrome.webRequest.onBeforeRequest.addListener(
+  details => {
+    // Only process if IDM listener is running
+    if (!idmState.running) return;
+
+    const { url, tabId } = details;
+
+    // Skip invalid URLs or extension internal requests
+    if (!url || tabId < 0) return;
+
+    // Check if this is a video URL
+    if (isNetworkVideoUrl(url)) {
+      // Check if already recorded
+      const exists = idmState.videosFound.some(v => v.url === url);
+      if (exists) return;
+
+      // Get tab URL for context
+      chrome.tabs
+        .get(tabId)
+        .then(tab => {
+          const video: IDMVideoLink = {
+            id: `vid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url,
+            title: extractTitleFromUrl(url, tab.url),
+            type: getVideoTypeFromUrl(url),
+            timestamp: Date.now(),
+            tabId,
+            tabUrl: tab.url,
+            downloaded: false,
+          };
+
+          addVideoLink(video);
+        })
+        .catch(() => {
+          // Tab might no longer exist, still record the video
+          const video: IDMVideoLink = {
+            id: `vid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url,
+            title: extractTitleFromUrl(url),
+            type: getVideoTypeFromUrl(url),
+            timestamp: Date.now(),
+            tabId,
+            downloaded: false,
+          };
+
+          addVideoLink(video);
+        });
+    }
+  },
+  { urls: ['<all_urls>'] }
+);
 
 export {};

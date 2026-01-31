@@ -849,3 +849,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.idm-video-url {
+  font-size: 10px;
+  color: #8892b0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.idm-video-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.idm-video-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.idm-video-info > .idm-video-type {
+  align-self: flex-start;
+}

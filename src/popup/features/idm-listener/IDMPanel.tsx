@@ -11,6 +11,7 @@ export function IDMPanel() {
     updateConfig,
     downloadVideo,
     downloadAllVideos,
+    copyVideoUrl,
     clearVideos,
   } = useIDMListener();
 
@@ -137,17 +138,30 @@ export function IDMPanel() {
                     >
                       <div className="idm-video-info">
                         <span className="idm-video-type">{video.type}</span>
-                        <span className="idm-video-title" title={video.url}>
+                        <span className="idm-video-title" title={video.title}>
                           {video.title}
                         </span>
+                        <span className="idm-video-url" title={video.url}>
+                          {video.url.length > 60 ? video.url.substring(0, 60) + '...' : video.url}
+                        </span>
                       </div>
-                      <button
-                        className="btn btn-small btn-primary"
-                        onClick={() => downloadVideo(video)}
-                        disabled={video.downloaded}
-                      >
-                        {video.downloaded ? 'Sent' : 'Download'}
-                      </button>
+                      <div className="idm-video-actions">
+                        <button
+                          className="btn btn-small btn-secondary"
+                          onClick={() => copyVideoUrl(video)}
+                          title="Copy URL"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          className="btn btn-small btn-primary"
+                          onClick={() => downloadVideo(video)}
+                          disabled={video.downloaded}
+                          title={video.downloaded ? 'Already downloaded' : 'Download via Chrome'}
+                        >
+                          {video.downloaded ? '✓' : 'DL'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

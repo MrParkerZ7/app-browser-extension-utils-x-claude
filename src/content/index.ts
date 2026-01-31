@@ -1445,6 +1445,11 @@ if (!alreadyInitialized) {
   const seenVideoUrls = new Set<string>();
 
   function isVideoUrl(url: string): boolean {
+    // Skip blob URLs - they are browser-only and can't be downloaded externally
+    if (url.startsWith('blob:')) {
+      return false;
+    }
+
     const lowerUrl = url.toLowerCase();
     return videoExtensions.some(
       ext =>

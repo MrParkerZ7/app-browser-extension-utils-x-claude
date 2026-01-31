@@ -92,7 +92,7 @@ export function useIDMListener() {
         type: 'IDM_DOWNLOAD_VIDEO',
         payload: { url: video.url, downloadPath: config.downloadPath },
       });
-      showStatus(`Sent to IDM: ${video.title}`, 'info');
+      showStatus(`Downloading: ${video.title}`, 'info');
     },
     [config.downloadPath, showStatus]
   );
@@ -105,8 +105,27 @@ export function useIDMListener() {
         payload: { url: video.url, downloadPath: config.downloadPath },
       });
     }
-    showStatus(`Sent ${undownloaded.length} videos to IDM.`, 'info');
+    showStatus(`Started downloading ${undownloaded.length} videos.`, 'info');
   }, [state.videosFound, config.downloadPath, showStatus]);
+
+  const copyVideoUrl = useCallback(
+    async (video: IDMVideoLink) => {
+      try {
+        await navigator.clipboard.writeText(video.url);
+        showStatus(`URL copied: ${video.title}`, 'info');
+      } catch {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = video.url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showStatus(`URL copied: ${video.title}`, 'info');
+      }
+    },
+    [showStatus]
+  );
 
   const clearVideos = useCallback(async () => {
     await sendMessage({ type: 'IDM_CLEAR_VIDEOS' });
@@ -122,6 +141,7 @@ export function useIDMListener() {
     updateConfig,
     downloadVideo,
     downloadAllVideos,
+    copyVideoUrl,
     clearVideos,
     showStatus,
     hideStatus,
