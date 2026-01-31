@@ -92,8 +92,8 @@
 
 /* Action checkboxes */
 .fb-action-checkboxes {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-top: 4px;
 }
@@ -559,8 +559,8 @@
 }
 
 .fb-notif-checkboxes {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-left: 4px;
 }
@@ -678,8 +678,8 @@
 /* Mode selector radio buttons */
 .fb-mode-radios {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 16px;
   margin-top: 4px;
 }
 
