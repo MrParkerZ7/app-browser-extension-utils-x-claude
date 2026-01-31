@@ -4,6 +4,8 @@ import { TemplateManager } from './TemplateManager';
 import { TabScanner } from './TabScanner';
 import { ActionButtons } from './ActionButtons';
 import { NotifListenerPanel } from '../fb-notif-listener/NotifListenerPanel';
+import { ModeSelector } from './ModeSelector';
+import { BookmarkFolderSelector } from './BookmarkFolderSelector';
 
 export function FBReplyPanel() {
   const {
@@ -11,6 +13,9 @@ export function FBReplyPanel() {
     actions,
     status,
     isCollapsed,
+    mode,
+    selectedFolderId,
+    bookmarkFolders,
     scanTabs,
     startAutoReply,
     stopAutoReply,
@@ -24,6 +29,9 @@ export function FBReplyPanel() {
     setActiveTemplateIndex,
     getActionLabel,
     toggleCollapsed,
+    loadBookmarkFolders,
+    updateMode,
+    updateSelectedFolder,
   } = useFBReply();
 
   const hasSelectedPendingTabs = state.tabs.some(t => t.status === 'pending' && t.selected);
@@ -64,6 +72,18 @@ export function FBReplyPanel() {
             <p className="fb-reply-desc">
               Perform actions on Facebook comment tabs (URLs with comment_id).
             </p>
+
+            <ModeSelector mode={mode} onChange={updateMode} disabled={state.running} />
+
+            {mode === 'bookmarks' && (
+              <BookmarkFolderSelector
+                folders={bookmarkFolders}
+                selectedId={selectedFolderId}
+                onSelect={updateSelectedFolder}
+                onRefresh={loadBookmarkFolders}
+                disabled={state.running}
+              />
+            )}
 
             <StepsConfig
               steps={actions.steps}
@@ -107,19 +127,22 @@ export function FBReplyPanel() {
               <div className={`fb-reply-status visible ${status.type}`}>{status.message}</div>
             )}
 
-            <TabScanner
-              tabs={state.tabs}
-              running={state.running}
-              onSelectTab={selectTab}
-              onSelectAll={selectAllTabs}
-              onDeselectAll={deselectAllTabs}
-            />
+            {mode === 'tabs' && (
+              <TabScanner
+                tabs={state.tabs}
+                running={state.running}
+                onSelectTab={selectTab}
+                onSelectAll={selectAllTabs}
+                onDeselectAll={deselectAllTabs}
+              />
+            )}
 
             <ActionButtons
               running={state.running}
               hasSelectedPendingTabs={hasSelectedPendingTabs}
               hasProcessingTabs={hasProcessingTabs}
               actionLabel={getActionLabel()}
+              showScanButton={mode === 'tabs'}
               onScan={scanTabs}
               onStart={startAutoReply}
               onStop={stopAutoReply}

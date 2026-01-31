@@ -5,6 +5,8 @@ import {
   FBReplyTemplate,
   FBTab,
   FBAutoReplyConfig,
+  FBAutoReplyMode,
+  BookmarkFolder,
 } from '../../../shared/types';
 import { sendMessage } from '../../hooks';
 
@@ -32,7 +34,13 @@ export function useFBReply() {
     tabs: [],
     completed: 0,
     total: 0,
+    mode: 'tabs',
+    skippedBookmarks: 0,
   });
+
+  const [mode, setMode] = useState<FBAutoReplyMode>('tabs');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [bookmarkFolders, setBookmarkFolders] = useState<BookmarkFolder[]>([]);
 
   const [actions, setActions] = useState<FBReplyActions>(DEFAULT_ACTIONS);
   const [status, setStatus] = useState<{
@@ -84,6 +92,8 @@ export function useFBReply() {
         'fbStepSubmit',
         'fbActionClose',
         'fbReplySectionCollapsed',
+        'fbReplyMode',
+        'fbSelectedFolderId',
       ])
       .then(stored => {
         const newActions = { ...DEFAULT_ACTIONS };
@@ -109,8 +119,15 @@ export function useFBReply() {
         if (stored.fbActionClose !== undefined) newActions.doClose = stored.fbActionClose;
         if (stored.fbReplySectionCollapsed !== undefined)
           setIsCollapsed(stored.fbReplySectionCollapsed);
+        if (stored.fbReplyMode) setMode(stored.fbReplyMode);
+        if (stored.fbSelectedFolderId) setSelectedFolderId(stored.fbSelectedFolderId);
 
         setActions(newActions);
+
+        // Load bookmark folders if in bookmark mode
+        if (stored.fbReplyMode === 'bookmarks') {
+          loadBookmarkFolders();
+        }
       });
   }, []);
 
@@ -168,6 +185,12 @@ export function useFBReply() {
       return;
     }
 
+    // Validate bookmark mode requirements
+    if (mode === 'bookmarks' && !selectedFolderId) {
+      showStatus('Please select a bookmark folder.', 'error');
+      return;
+    }
+
     if (steps.inputText || steps.uploadImages) {
       const validTemplates = templates.filter(t => {
         const hasMessage = !steps.inputText || t.message.trim() !== '';
@@ -193,6 +216,8 @@ export function useFBReply() {
       delayMax,
       steps,
       doClose,
+      mode,
+      bookmarkFolderId: mode === 'bookmarks' ? (selectedFolderId ?? undefined) : undefined,
     };
 
     const response = await sendMessage({ type: 'FB_START_AUTO_REPLY', payload: config });
@@ -201,7 +226,7 @@ export function useFBReply() {
     } else {
       showStatus(response?.error || 'Failed to start', 'error');
     }
-  }, [actions, showStatus]);
+  }, [actions, showStatus, mode, selectedFolderId]);
 
   const stopAutoReply = useCallback(async () => {
     showStatus('Stopping...', 'warning');
@@ -284,11 +309,44 @@ export function useFBReply() {
     chrome.storage.local.set({ fbReplySectionCollapsed: newValue });
   }, [isCollapsed]);
 
+  // Bookmark mode functions
+  const loadBookmarkFolders = useCallback(async () => {
+    const response = await sendMessage({ type: 'FB_GET_BOOKMARK_FOLDERS' });
+    if (response?.success && response.data) {
+      setBookmarkFolders(response.data as BookmarkFolder[]);
+    }
+  }, []);
+
+  const updateMode = useCallback(
+    (newMode: FBAutoReplyMode) => {
+      setMode(newMode);
+      chrome.storage.local.set({ fbReplyMode: newMode });
+
+      // Load bookmark folders when switching to bookmark mode
+      if (newMode === 'bookmarks') {
+        loadBookmarkFolders();
+      }
+    },
+    [loadBookmarkFolders]
+  );
+
+  const updateSelectedFolder = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId);
+    if (folderId) {
+      chrome.storage.local.set({ fbSelectedFolderId: folderId });
+    } else {
+      chrome.storage.local.remove('fbSelectedFolderId');
+    }
+  }, []);
+
   return {
     state,
     actions,
     status,
     isCollapsed,
+    mode,
+    selectedFolderId,
+    bookmarkFolders,
     scanTabs,
     startAutoReply,
     stopAutoReply,
@@ -304,5 +362,8 @@ export function useFBReply() {
     toggleCollapsed,
     showStatus,
     hideStatus,
+    loadBookmarkFolders,
+    updateMode,
+    updateSelectedFolder,
   };
 }

@@ -73,6 +73,15 @@ export interface FBNotificationScanResult {
 
 export type FBTabStatus = 'pending' | 'processing' | 'done' | 'error';
 
+// FB Auto Reply mode
+export type FBAutoReplyMode = 'tabs' | 'bookmarks';
+
+export interface BookmarkFolder {
+  id: string;
+  title: string;
+  path: string; // e.g., "Bookmarks Bar / Facebook"
+}
+
 export interface FBTab {
   id: number;
   index: number;
@@ -101,6 +110,8 @@ export interface FBAutoReplyConfig {
   delayMax: number;
   steps: FBReplySteps;
   doClose: boolean;
+  mode: FBAutoReplyMode;
+  bookmarkFolderId?: string;
 }
 
 export interface FBAutoReplyState {
@@ -109,6 +120,8 @@ export interface FBAutoReplyState {
   completed: number;
   total: number;
   currentTabId?: number;
+  mode: FBAutoReplyMode;
+  skippedBookmarks: number;
 }
 
 // Message types for communication
@@ -142,7 +155,8 @@ export type MessageType =
       type: 'FB_NOTIF_SCAN_PAGE';
       payload: { filters: FBNotificationFilter; expandPrevious: boolean };
     }
-  | { type: 'FB_NOTIF_SCAN_RESULT'; payload: FBNotificationScanResult };
+  | { type: 'FB_NOTIF_SCAN_RESULT'; payload: FBNotificationScanResult }
+  | { type: 'FB_GET_BOOKMARK_FOLDERS'; payload?: undefined };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;

@@ -10,6 +10,7 @@ import {
   FBNotificationListenerState,
   FBNotificationListenerConfig,
   FBNotificationScanResult,
+  BookmarkFolder,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -53,6 +54,8 @@ const fbState: FBAutoReplyState = {
   tabs: [],
   completed: 0,
   total: 0,
+  mode: 'tabs',
+  skippedBookmarks: 0,
 };
 
 let fbAbort = false;
@@ -94,7 +97,15 @@ async function scanFBTabs(): Promise<FBTab[]> {
 }
 
 async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
-  const { templates, delayMin, delayMax, steps, doClose } = config;
+  const { templates, delayMin, delayMax, steps, doClose, mode } = config;
+
+  // Handle bookmark mode separately
+  if (mode === 'bookmarks') {
+    return startFBBookmarkMode(config);
+  }
+
+  fbState.mode = 'tabs';
+  fbState.skippedBookmarks = 0;
 
   // Validate: at least one action must be selected
   const hasAnyStep = steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
@@ -331,6 +342,333 @@ function selectAllTabs(selected: boolean): void {
     }
   });
   broadcastState();
+}
+
+// ============================================
+// Bookmark Functions
+// ============================================
+
+async function getBookmarkFolders(): Promise<BookmarkFolder[]> {
+  const folders: BookmarkFolder[] = [];
+
+  async function traverse(nodes: chrome.bookmarks.BookmarkTreeNode[], path: string): Promise<void> {
+    for (const node of nodes) {
+      if (node.children) {
+        // This is a folder
+        const folderPath = path ? `${path} / ${node.title}` : node.title;
+        if (node.id !== '0') {
+          // Skip root node
+          folders.push({
+            id: node.id,
+            title: node.title,
+            path: folderPath,
+          });
+        }
+        await traverse(node.children, folderPath);
+      }
+    }
+  }
+
+  const tree = await chrome.bookmarks.getTree();
+  await traverse(tree, '');
+
+  return folders;
+}
+
+async function getBookmarksInFolder(
+  folderId: string
+): Promise<chrome.bookmarks.BookmarkTreeNode[]> {
+  const children = await chrome.bookmarks.getChildren(folderId);
+  // Only return bookmarks (not subfolders)
+  return children.filter(child => child.url);
+}
+
+async function startFBBookmarkMode(config: FBAutoReplyConfig): Promise<void> {
+  const { templates, delayMin, delayMax, steps, doClose, bookmarkFolderId } = config;
+
+  if (!bookmarkFolderId) {
+    logger.error('FB Auto Reply: No bookmark folder selected');
+    return;
+  }
+
+  // Validate: at least one action must be selected
+  const hasAnyStep = steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
+  if (!hasAnyStep && !doClose) {
+    logger.error('FB Auto Reply: No action selected');
+    return;
+  }
+
+  // Validate templates if needed
+  if ((steps.inputText || steps.uploadImages) && (!templates || templates.length === 0)) {
+    logger.error('FB Auto Reply: No templates provided');
+    return;
+  }
+
+  // Get bookmarks from selected folder
+  const bookmarks = await getBookmarksInFolder(bookmarkFolderId);
+
+  if (bookmarks.length === 0) {
+    logger.warn('FB Auto Reply: No bookmarks found in selected folder');
+    broadcastState();
+    return;
+  }
+
+  fbState.running = true;
+  fbState.mode = 'bookmarks';
+  fbAbort = false;
+  fbState.completed = 0;
+  fbState.total = bookmarks.length;
+  fbState.skippedBookmarks = 0;
+  fbState.tabs = [];
+
+  const actionDesc = hasAnyStep && doClose ? 'Reply & Close' : hasAnyStep ? 'Reply' : 'Close Tabs';
+
+  logger.info(`FB Auto Reply (Bookmark Mode): Starting ${actionDesc}`, {
+    steps,
+    doClose,
+    templateCount: templates.length,
+    delayRange: `${delayMin}-${delayMax}ms`,
+    totalBookmarks: bookmarks.length,
+    folderId: bookmarkFolderId,
+  });
+
+  broadcastState();
+
+  for (let i = 0; i < bookmarks.length; i++) {
+    if (fbAbort) {
+      logger.warn('FB Auto Reply: Stopped by user', {
+        completed: fbState.completed,
+        skipped: fbState.skippedBookmarks,
+        total: fbState.total,
+      });
+      break;
+    }
+
+    const bookmark = bookmarks[i];
+    const bookmarkIndex = i + 1;
+
+    // Check if valid Facebook comment URL
+    if (!bookmark.url || !isFacebookCommentUrl(bookmark.url)) {
+      logger.debug(`FB Auto Reply: Skipping non-Facebook URL`, {
+        index: bookmarkIndex,
+        url: bookmark.url,
+        title: bookmark.title,
+      });
+      fbState.skippedBookmarks++;
+      broadcastState();
+      continue;
+    }
+
+    logger.info(`FB Auto Reply: Processing bookmark ${bookmarkIndex}/${fbState.total}`, {
+      steps,
+      doClose,
+      title: bookmark.title,
+      url: bookmark.url,
+    });
+
+    let openedTab: chrome.tabs.Tab | null = null;
+
+    try {
+      // Open the bookmark in a new tab
+      openedTab = await chrome.tabs.create({ url: bookmark.url, active: true });
+
+      if (!openedTab?.id) {
+        throw new Error('Failed to open bookmark tab');
+      }
+
+      fbState.currentTabId = openedTab.id;
+
+      // Add to tabs list for UI display
+      const fbTab: FBTab = {
+        id: openedTab.id,
+        index: openedTab.index,
+        title: bookmark.title || 'Facebook',
+        url: bookmark.url,
+        status: 'processing',
+        selected: true,
+      };
+      fbState.tabs.push(fbTab);
+      broadcastState();
+
+      // Wait for tab to load
+      await waitForTabLoad(openedTab.id);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Inject content script with retry
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: openedTab.id },
+            files: ['content/index.js'],
+          });
+          logger.debug('FB Auto Reply: Content script injected', { tabId: openedTab.id, attempt });
+          break;
+        } catch (injectError) {
+          const errMsg = injectError instanceof Error ? injectError.message : String(injectError);
+          if (errMsg.includes('Cannot access') || errMsg.includes('not be scripted')) {
+            logger.error('FB Auto Reply: Cannot inject script (restricted page)', {
+              tabId: openedTab.id,
+            });
+            throw new Error('Cannot inject script on this page');
+          }
+          logger.debug('FB Auto Reply: Script injection attempt failed', {
+            tabId: openedTab.id,
+            attempt,
+            error: errMsg,
+          });
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+
+      // Wait for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      let actionSuccess = true;
+
+      // Reply action (if any step is selected)
+      if (hasAnyStep && actionSuccess) {
+        // Randomly select a template
+        const randomTemplateIndex = Math.floor(Math.random() * templates.length);
+        const selectedTemplate = templates[randomTemplateIndex];
+
+        // If there are multiple image URLs, randomly select one
+        const templateToSend = { ...selectedTemplate };
+        if (templateToSend.imageUrls.length > 1) {
+          const randomImageIndex = Math.floor(Math.random() * templateToSend.imageUrls.length);
+          templateToSend.imageUrls = [templateToSend.imageUrls[randomImageIndex]];
+        }
+
+        logger.info('FB Auto Reply: Selected template', {
+          templateIndex: randomTemplateIndex,
+          totalTemplates: templates.length,
+          message: templateToSend.message.substring(0, 50),
+          imageUrls: templateToSend.imageUrls,
+        });
+
+        let response = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            logger.debug('FB Auto Reply: Sending reply message', {
+              tabId: openedTab.id,
+              steps,
+              template: templateToSend,
+              attempt,
+            });
+            response = await chrome.tabs.sendMessage(openedTab.id, {
+              type: 'FB_AUTO_REPLY',
+              payload: { template: templateToSend, steps },
+            });
+            break;
+          } catch (sendError) {
+            const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
+            logger.warn('FB Auto Reply: Message send failed', {
+              tabId: openedTab.id,
+              attempt,
+              error: errMsg,
+            });
+            if (attempt < 3) {
+              try {
+                await chrome.scripting.executeScript({
+                  target: { tabId: openedTab.id },
+                  files: ['content/index.js'],
+                });
+              } catch {
+                // Ignore injection errors on retry
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw sendError;
+            }
+          }
+        }
+
+        if (response?.success) {
+          logger.info(`FB Auto Reply: Bookmark ${bookmarkIndex} reply successful`, {
+            tabId: openedTab.id,
+          });
+        } else {
+          actionSuccess = false;
+          fbTab.status = 'error';
+          fbTab.error = response?.error || 'Unknown error';
+          logger.error(`FB Auto Reply: Bookmark ${bookmarkIndex} reply failed`, {
+            tabId: openedTab.id,
+            error: fbTab.error,
+          });
+        }
+      }
+
+      // Close action
+      if (doClose && actionSuccess && openedTab?.id) {
+        if (hasAnyStep) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        logger.debug('FB Auto Reply: Closing tab', { tabId: openedTab.id });
+        try {
+          await chrome.tabs.remove(openedTab.id);
+        } catch {
+          // Tab might already be closed
+        }
+        logger.info(`FB Auto Reply: Bookmark ${bookmarkIndex} tab closed`, { tabId: openedTab.id });
+      }
+
+      // Mark as done if successful
+      if (actionSuccess) {
+        fbTab.status = 'done';
+        fbState.completed++;
+        logger.info(`FB Auto Reply: Bookmark ${bookmarkIndex} completed successfully`);
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`FB Auto Reply: Bookmark ${bookmarkIndex} exception`, {
+        title: bookmark.title,
+        url: bookmark.url,
+        error: errMsg,
+      });
+
+      // Update tab status if it exists
+      const fbTab = fbState.tabs.find(t => t.id === openedTab?.id);
+      if (fbTab) {
+        fbTab.status = 'error';
+        fbTab.error = errMsg;
+      }
+
+      // Try to close the tab on error if configured
+      if (doClose && openedTab?.id) {
+        try {
+          await chrome.tabs.remove(openedTab.id);
+        } catch {
+          // Tab might already be closed
+        }
+      }
+    }
+
+    broadcastState();
+
+    // Wait before next bookmark with random delay
+    if (!fbAbort && i < bookmarks.length - 1) {
+      const randomDelay = getRandomDelay(delayMin, delayMax);
+      logger.debug('FB Auto Reply: Waiting before next bookmark', {
+        randomDelay,
+        delayMin,
+        delayMax,
+      });
+      await new Promise(resolve => setTimeout(resolve, randomDelay));
+    }
+  }
+
+  fbState.running = false;
+  fbState.currentTabId = undefined;
+  broadcastState();
+
+  if (!fbAbort) {
+    logger.info(`FB Auto Reply (Bookmark Mode): Completed`, {
+      completed: fbState.completed,
+      skipped: fbState.skippedBookmarks,
+      total: fbState.total,
+    });
+  }
 }
 
 // ============================================
@@ -624,6 +962,12 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
       selectAllTabs(message.payload.selected);
       sendResponse({ success: true } as MessageResponse);
       break;
+
+    case 'FB_GET_BOOKMARK_FOLDERS':
+      getBookmarkFolders().then(folders => {
+        sendResponse({ success: true, data: folders } as MessageResponse<BookmarkFolder[]>);
+      });
+      return true; // Keep channel open for async
 
     // FB Notification Listener commands
     case 'FB_NOTIF_START':

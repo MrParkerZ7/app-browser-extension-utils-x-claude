@@ -674,3 +674,76 @@
   background: #1a2a4e;
   color: #e0e0e0;
 }
+
+/* Mode selector radio buttons */
+.fb-mode-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.fb-mode-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+
+.fb-mode-radio input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #64ffda;
+}
+
+.fb-mode-radio input[type='radio']:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.fb-mode-radio span {
+  user-select: none;
+}
+
+/* Bookmark folder selector */
+.fb-bookmark-folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.fb-bookmark-folder-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: #0d1b2a;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.fb-bookmark-folder-select:focus {
+  border-color: #64ffda;
+}
+
+.fb-bookmark-folder-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.fb-bookmark-folder-select option {
+  background: #0d1b2a;
+  color: #e0e0e0;
+}
+
+/* Small button variant */
+.btn-small {
+  padding: 4px 8px;
+  font-size: 11px;
+}
