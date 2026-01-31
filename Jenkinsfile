@@ -4,6 +4,8 @@ pipeline {
     environment {
         REPORTS_DIR = 'security-reports'
         SBOM_DIR = 'sbom'
+        DOCKER_IMAGE = 'browser-extension'
+        DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
     options {
@@ -33,7 +35,77 @@ pipeline {
         }
 
         //=======================================================================
-        // STAGE 2: PRE-BUILD SECURITY SCANS
+        // STAGE 2: INSTALL DEPENDENCIES
+        //=======================================================================
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                    echo "Installing dependencies..."
+                    npm ci
+                '''
+            }
+        }
+
+        //=======================================================================
+        // STAGE 3: CODE QUALITY CHECKS
+        //=======================================================================
+        stage('Code Quality') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh '''
+                            echo "Running ESLint..."
+                            npm run lint
+                        '''
+                    }
+                }
+
+                stage('Format') {
+                    steps {
+                        sh '''
+                            echo "Running Prettier..."
+                            npm run format
+                        '''
+                    }
+                }
+            }
+        }
+
+        //=======================================================================
+        // STAGE 4: CLEAN & BUILD
+        //=======================================================================
+        stage('Clean & Build') {
+            steps {
+                sh '''
+                    echo "Cleaning previous build..."
+                    npm run clean
+
+                    echo "Building extension..."
+                    npm run build
+                '''
+            }
+        }
+
+        //=======================================================================
+        // STAGE 5: TEST
+        //=======================================================================
+        stage('Test') {
+            steps {
+                sh '''
+                    echo "Running tests..."
+                    npm test -- --ci --coverage
+                '''
+            }
+            post {
+                always {
+                    // Archive test coverage reports if generated
+                    archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+                }
+            }
+        }
+
+        //=======================================================================
+        // STAGE 6: PRE-BUILD SECURITY SCANS
         //=======================================================================
         stage('Pre-Build Security Scans') {
             parallel {
@@ -87,7 +159,7 @@ pipeline {
         }
 
         //=======================================================================
-        // STAGE 3: CODE ANALYSIS
+        // STAGE 7: CODE ANALYSIS
         //=======================================================================
         stage('Code Analysis') {
             parallel {
@@ -196,7 +268,40 @@ pipeline {
         }
 
         //=======================================================================
-        // STAGE 4: SECURITY SUMMARY
+        // STAGE 8: DOCKER BUILD & SCAN
+        //=======================================================================
+        stage('Docker Build & Scan') {
+            steps {
+                script {
+                    sh '''
+                        echo "Building Docker image..."
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                    '''
+
+                    sh '''
+                        echo "Scanning Docker image with Trivy..."
+                        trivy image \
+                            --format json \
+                            --output ${REPORTS_DIR}/trivy-image-report.json \
+                            --severity CRITICAL,HIGH,MEDIUM \
+                            ${DOCKER_IMAGE}:${DOCKER_TAG} || true
+
+                        if [ -f ${REPORTS_DIR}/trivy-image-report.json ]; then
+                            echo "Docker image scan completed"
+                        fi
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: "${REPORTS_DIR}/trivy-image-report.json", allowEmptyArchive: true
+                }
+            }
+        }
+
+        //=======================================================================
+        // STAGE 9: SECURITY SUMMARY
         //=======================================================================
         stage('Security Summary') {
             steps {
@@ -230,7 +335,8 @@ pipeline {
     "sast": "semgrep",
     "sca": "trivy",
     "iac": "checkov",
-    "sbom": "syft"
+    "sbom": "syft",
+    "container": "trivy-image"
   },
   "status": "completed"
 }
