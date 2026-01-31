@@ -4,18 +4,18 @@ pipeline {
     environment {
         REPORTS_DIR = 'security-reports'
         SBOM_DIR = 'sbom'
-        DOCKER_IMAGE = 'browser-extension'
+        DOCKER_IMAGE = 'app-extension-browser'
         DOCKER_TAG = "${BUILD_NUMBER}"
 
         // SonarQube
         SONAR_HOST_URL = "${params.SONAR_HOST_URL ?: 'http://sonarqube:9000'}"
-        SONAR_PROJECT_KEY = "${params.SONAR_PROJECT_KEY ?: 'browser-extension-utils'}"
+        SONAR_PROJECT_KEY = "${params.SONAR_PROJECT_KEY ?: 'app-extension-browser-utils'}"
     }
 
     parameters {
         booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarQube scan')
         string(name: 'SONAR_HOST_URL', defaultValue: 'http://sonarqube:9000', description: 'SonarQube server URL')
-        string(name: 'SONAR_PROJECT_KEY', defaultValue: 'browser-extension-utils', description: 'SonarQube project key')
+        string(name: 'SONAR_PROJECT_KEY', defaultValue: 'app-extension-browser-utils', description: 'SonarQube project key')
     }
 
     options {
@@ -228,7 +228,7 @@ pipeline {
                                         -w /usr/src \
                                         sonarsource/sonar-scanner-cli:latest \
                                         -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                        -Dsonar.projectName="Browser Extension Utils" \
+                                        -Dsonar.projectName="App Extension Browser Utils" \
                                         -Dsonar.sources=src \
                                         -Dsonar.host.url=${SONAR_HOST_URL} \
                                         -Dsonar.login=admin \
