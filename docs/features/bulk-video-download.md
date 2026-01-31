@@ -33,14 +33,14 @@ Automatically detect video links on web pages and collect them for download.
 
 ## Supported Sites
 
-The extension detects video URLs from:
+The extension attempts to detect video URLs from network requests. Detection may work on sites that use direct video URLs.
 
-- TikTok
-- Facebook
-- Instagram
-- Twitter/X
-- YouTube (limited - often blocked by CSP)
-- Most sites with direct video URLs
+**Note:** Many modern sites use:
+- Blob URLs (browser-only, cannot be downloaded)
+- DRM/encrypted streams
+- Dynamic token-based URLs that expire quickly
+
+Detection is best-effort and not guaranteed for any specific site.
 
 ## Detection Methods
 
@@ -51,7 +51,7 @@ Uses `chrome.webRequest` API to intercept actual video URLs before they become b
 Detected patterns:
 - Direct video files: `.mp4`, `.webm`, `.mkv`, `.avi`, `.mov`, `.flv`
 - Streaming formats: `.m3u8`, `.mpd`, `.ts`
-- CDN patterns: `tiktokcdn`, `fbcdn`, `cdninstagram`, `twimg`
+- Common video URL patterns in paths and parameters
 
 ### Content Script Scanning
 

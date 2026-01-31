@@ -19,9 +19,10 @@ Monitor Facebook notifications and automatically open matching ones in new tabs.
 Detect and collect video URLs from web pages for bulk downloading.
 
 - **Auto-detection:** Intercepts video URLs from network requests
-- **Supported sites:** TikTok, Facebook, Instagram, Twitter, and more
 - **Copy URLs:** Copy single or all URLs to clipboard for external download managers
 - **Chrome download:** Direct download through Chrome (may have limitations)
+
+> ⚠️ Detection works on sites with direct video URLs. Sites using DRM, blob URLs, or encrypted streams may not work.
 
 #### 🎮 Usage:
 1. Click **Start Listener** to begin detection
