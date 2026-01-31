@@ -6,6 +6,7 @@ import { ActionButtons } from './ActionButtons';
 import { NotifListenerPanel } from '../fb-notif-listener/NotifListenerPanel';
 import { ModeSelector } from './ModeSelector';
 import { BookmarkFolderSelector } from './BookmarkFolderSelector';
+import { TemplateModeSelector } from './TemplateModeSelector';
 
 export function FBReplyPanel() {
   const {
@@ -16,6 +17,7 @@ export function FBReplyPanel() {
     mode,
     selectedFolderId,
     bookmarkFolders,
+    templateMode,
     scanTabs,
     startAutoReply,
     stopAutoReply,
@@ -32,6 +34,7 @@ export function FBReplyPanel() {
     loadBookmarkFolders,
     updateMode,
     updateSelectedFolder,
+    updateTemplateMode,
   } = useFBReply();
 
   const hasSelectedPendingTabs = state.tabs.some(t => t.status === 'pending' && t.selected);
@@ -98,6 +101,12 @@ export function FBReplyPanel() {
               steps={actions.steps}
               onTemplatesChange={updateTemplates}
               onActiveIndexChange={setActiveTemplateIndex}
+            />
+
+            <TemplateModeSelector
+              mode={templateMode}
+              onChange={updateTemplateMode}
+              disabled={state.running}
             />
 
             <div className="fb-reply-settings">

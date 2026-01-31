@@ -76,6 +76,9 @@ export type FBTabStatus = 'pending' | 'processing' | 'done' | 'error';
 // FB Auto Reply mode
 export type FBAutoReplyMode = 'tabs' | 'bookmarks';
 
+// Template selection mode
+export type FBTemplateSelectionMode = 'random' | 'sequential' | 'shuffled';
+
 export interface BookmarkFolder {
   id: string;
   title: string;
@@ -112,6 +115,7 @@ export interface FBAutoReplyConfig {
   doClose: boolean;
   mode: FBAutoReplyMode;
   bookmarkFolderId?: string;
+  templateMode: FBTemplateSelectionMode;
 }
 
 export interface FBAutoReplyState {

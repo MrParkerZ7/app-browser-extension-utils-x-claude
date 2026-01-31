@@ -7,6 +7,7 @@ import {
   FBAutoReplyConfig,
   FBAutoReplyMode,
   BookmarkFolder,
+  FBTemplateSelectionMode,
 } from '../../../shared/types';
 import { sendMessage } from '../../hooks';
 
@@ -41,6 +42,7 @@ export function useFBReply() {
   const [mode, setMode] = useState<FBAutoReplyMode>('tabs');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [bookmarkFolders, setBookmarkFolders] = useState<BookmarkFolder[]>([]);
+  const [templateMode, setTemplateMode] = useState<FBTemplateSelectionMode>('random');
 
   const [actions, setActions] = useState<FBReplyActions>(DEFAULT_ACTIONS);
   const [status, setStatus] = useState<{
@@ -94,6 +96,7 @@ export function useFBReply() {
         'fbReplySectionCollapsed',
         'fbReplyMode',
         'fbSelectedFolderId',
+        'fbTemplateMode',
       ])
       .then(stored => {
         const newActions = { ...DEFAULT_ACTIONS };
@@ -121,6 +124,7 @@ export function useFBReply() {
           setIsCollapsed(stored.fbReplySectionCollapsed);
         if (stored.fbReplyMode) setMode(stored.fbReplyMode);
         if (stored.fbSelectedFolderId) setSelectedFolderId(stored.fbSelectedFolderId);
+        if (stored.fbTemplateMode) setTemplateMode(stored.fbTemplateMode);
 
         setActions(newActions);
 
@@ -218,6 +222,7 @@ export function useFBReply() {
       doClose,
       mode,
       bookmarkFolderId: mode === 'bookmarks' ? (selectedFolderId ?? undefined) : undefined,
+      templateMode,
     };
 
     const response = await sendMessage({ type: 'FB_START_AUTO_REPLY', payload: config });
@@ -226,7 +231,7 @@ export function useFBReply() {
     } else {
       showStatus(response?.error || 'Failed to start', 'error');
     }
-  }, [actions, showStatus, mode, selectedFolderId]);
+  }, [actions, showStatus, mode, selectedFolderId, templateMode]);
 
   const stopAutoReply = useCallback(async () => {
     showStatus('Stopping...', 'warning');
@@ -339,6 +344,11 @@ export function useFBReply() {
     }
   }, []);
 
+  const updateTemplateMode = useCallback((newMode: FBTemplateSelectionMode) => {
+    setTemplateMode(newMode);
+    chrome.storage.local.set({ fbTemplateMode: newMode });
+  }, []);
+
   return {
     state,
     actions,
@@ -347,6 +357,7 @@ export function useFBReply() {
     mode,
     selectedFolderId,
     bookmarkFolders,
+    templateMode,
     scanTabs,
     startAutoReply,
     stopAutoReply,
@@ -365,5 +376,6 @@ export function useFBReply() {
     loadBookmarkFolders,
     updateMode,
     updateSelectedFolder,
+    updateTemplateMode,
   };
 }

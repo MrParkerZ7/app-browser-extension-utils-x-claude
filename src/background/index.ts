@@ -11,6 +11,8 @@ import {
   FBNotificationListenerConfig,
   FBNotificationScanResult,
   BookmarkFolder,
+  FBTemplateSelectionMode,
+  FBReplyTemplate,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -70,6 +72,63 @@ function broadcastState(): void {
   });
 }
 
+// Template selector for different selection modes
+class TemplateSelector {
+  private templates: FBReplyTemplate[];
+  private mode: FBTemplateSelectionMode;
+  private sequentialIndex: number = 0;
+  private shuffledOrder: number[] = [];
+  private shuffledIndex: number = 0;
+
+  constructor(templates: FBReplyTemplate[], mode: FBTemplateSelectionMode) {
+    this.templates = templates;
+    this.mode = mode;
+    if (mode === 'shuffled') {
+      this.reshuffleOrder();
+    }
+  }
+
+  private reshuffleOrder(): void {
+    // Create array of indices and shuffle using Fisher-Yates
+    this.shuffledOrder = this.templates.map((_, i) => i);
+    for (let i = this.shuffledOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.shuffledOrder[i], this.shuffledOrder[j]] = [this.shuffledOrder[j], this.shuffledOrder[i]];
+    }
+    this.shuffledIndex = 0;
+    logger.debug('FB Auto Reply: Shuffled template order', { order: this.shuffledOrder });
+  }
+
+  getNext(): { template: FBReplyTemplate; index: number } {
+    let index: number;
+
+    switch (this.mode) {
+      case 'random':
+        index = Math.floor(Math.random() * this.templates.length);
+        break;
+
+      case 'sequential':
+        index = this.sequentialIndex;
+        this.sequentialIndex = (this.sequentialIndex + 1) % this.templates.length;
+        break;
+
+      case 'shuffled':
+        index = this.shuffledOrder[this.shuffledIndex];
+        this.shuffledIndex++;
+        // Reset and reshuffle when all templates have been used
+        if (this.shuffledIndex >= this.shuffledOrder.length) {
+          this.reshuffleOrder();
+        }
+        break;
+
+      default:
+        index = 0;
+    }
+
+    return { template: this.templates[index], index };
+  }
+}
+
 async function scanFBTabs(): Promise<FBTab[]> {
   logger.info('FB Auto Reply: Scanning for Facebook tabs');
 
@@ -97,7 +156,7 @@ async function scanFBTabs(): Promise<FBTab[]> {
 }
 
 async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
-  const { templates, delayMin, delayMax, steps, doClose, mode } = config;
+  const { templates, delayMin, delayMax, steps, doClose, mode, templateMode } = config;
 
   // Handle bookmark mode separately
   if (mode === 'bookmarks') {
@@ -127,12 +186,16 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
   fbState.completed = 0;
   fbState.total = selectedPendingTabs.length;
 
+  // Create template selector based on mode
+  const templateSelector = new TemplateSelector(templates, templateMode || 'random');
+
   const actionDesc = hasAnyStep && doClose ? 'Reply & Close' : hasAnyStep ? 'Reply' : 'Close Tabs';
 
   logger.info(`FB Auto Reply: Starting ${actionDesc}`, {
     steps,
     doClose,
     templateCount: templates.length,
+    templateMode: templateMode || 'random',
     delayRange: `${delayMin}-${delayMax}ms`,
     totalTabs: fbState.total,
   });
@@ -206,9 +269,8 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
 
       // Reply action (if any step is selected)
       if (hasAnyStep && actionSuccess) {
-        // Randomly select a template for this reply
-        const randomTemplateIndex = Math.floor(Math.random() * templates.length);
-        const selectedTemplate = templates[randomTemplateIndex];
+        // Select template based on mode
+        const { template: selectedTemplate, index: templateIndex } = templateSelector.getNext();
 
         // If there are multiple image URLs in the template, randomly select one
         const templateToSend = { ...selectedTemplate };
@@ -218,8 +280,9 @@ async function startFBAutoReply(config: FBAutoReplyConfig): Promise<void> {
         }
 
         logger.info('FB Auto Reply: Selected template', {
-          templateIndex: randomTemplateIndex,
+          templateIndex,
           totalTemplates: templates.length,
+          templateMode: templateMode || 'random',
           message: templateToSend.message.substring(0, 50),
           imageUrls: templateToSend.imageUrls,
         });
@@ -384,7 +447,7 @@ async function getBookmarksInFolder(
 }
 
 async function startFBBookmarkMode(config: FBAutoReplyConfig): Promise<void> {
-  const { templates, delayMin, delayMax, steps, doClose, bookmarkFolderId } = config;
+  const { templates, delayMin, delayMax, steps, doClose, bookmarkFolderId, templateMode } = config;
 
   if (!bookmarkFolderId) {
     logger.error('FB Auto Reply: No bookmark folder selected');
@@ -421,12 +484,16 @@ async function startFBBookmarkMode(config: FBAutoReplyConfig): Promise<void> {
   fbState.skippedBookmarks = 0;
   fbState.tabs = [];
 
+  // Create template selector based on mode
+  const templateSelector = new TemplateSelector(templates, templateMode || 'random');
+
   const actionDesc = hasAnyStep && doClose ? 'Reply & Close' : hasAnyStep ? 'Reply' : 'Close Tabs';
 
   logger.info(`FB Auto Reply (Bookmark Mode): Starting ${actionDesc}`, {
     steps,
     doClose,
     templateCount: templates.length,
+    templateMode: templateMode || 'random',
     delayRange: `${delayMin}-${delayMax}ms`,
     totalBookmarks: bookmarks.length,
     folderId: bookmarkFolderId,
@@ -529,9 +596,8 @@ async function startFBBookmarkMode(config: FBAutoReplyConfig): Promise<void> {
 
       // Reply action (if any step is selected)
       if (hasAnyStep && actionSuccess) {
-        // Randomly select a template
-        const randomTemplateIndex = Math.floor(Math.random() * templates.length);
-        const selectedTemplate = templates[randomTemplateIndex];
+        // Select template based on mode
+        const { template: selectedTemplate, index: templateIndex } = templateSelector.getNext();
 
         // If there are multiple image URLs, randomly select one
         const templateToSend = { ...selectedTemplate };
@@ -541,8 +607,9 @@ async function startFBBookmarkMode(config: FBAutoReplyConfig): Promise<void> {
         }
 
         logger.info('FB Auto Reply: Selected template', {
-          templateIndex: randomTemplateIndex,
+          templateIndex,
           totalTemplates: templates.length,
+          templateMode: templateMode || 'random',
           message: templateToSend.message.substring(0, 50),
           imageUrls: templateToSend.imageUrls,
         });
