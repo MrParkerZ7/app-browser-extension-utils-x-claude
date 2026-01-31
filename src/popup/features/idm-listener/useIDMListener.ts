@@ -68,14 +68,9 @@ export function useIDMListener() {
   );
 
   const startListener = useCallback(async () => {
-    if (!config.downloadPath.trim()) {
-      showStatus('Please enter a download path.', 'error');
-      return;
-    }
-
     const response = await sendMessage({ type: 'IDM_START_LISTENER', payload: config });
     if (response?.success) {
-      showStatus('Video listener started.', 'info');
+      showStatus('Video listener started. Browse pages with videos.', 'info');
     } else {
       showStatus(response?.error || 'Failed to start listener.', 'error');
     }
@@ -90,11 +85,11 @@ export function useIDMListener() {
     async (video: IDMVideoLink) => {
       await sendMessage({
         type: 'IDM_DOWNLOAD_VIDEO',
-        payload: { url: video.url, downloadPath: config.downloadPath },
+        payload: { url: video.url, downloadPath: '' },
       });
-      showStatus(`Downloading: ${video.title}`, 'info');
+      showStatus(`Sent to IDM: ${video.title}`, 'info');
     },
-    [config.downloadPath, showStatus]
+    [showStatus]
   );
 
   const downloadAllVideos = useCallback(async () => {
@@ -102,11 +97,13 @@ export function useIDMListener() {
     for (const video of undownloaded) {
       await sendMessage({
         type: 'IDM_DOWNLOAD_VIDEO',
-        payload: { url: video.url, downloadPath: config.downloadPath },
+        payload: { url: video.url, downloadPath: '' },
       });
+      // Small delay between opening tabs to not overwhelm
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-    showStatus(`Started downloading ${undownloaded.length} videos.`, 'info');
-  }, [state.videosFound, config.downloadPath, showStatus]);
+    showStatus(`Sent ${undownloaded.length} videos to IDM.`, 'info');
+  }, [state.videosFound, showStatus]);
 
   const copyVideoUrl = useCallback(
     async (video: IDMVideoLink) => {
