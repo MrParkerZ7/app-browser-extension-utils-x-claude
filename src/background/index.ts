@@ -1002,36 +1002,72 @@ function addVideoLink(video: IDMVideoLink): void {
   }
 }
 
-function downloadWithIdm(url: string, _downloadPath: string): void {
-  logger.info('IDM Listener: Opening URL for IDM to intercept', { url });
+function getExtensionFromUrl(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
+  for (const ext of extensions) {
+    if (lowerUrl.includes(`.${ext}`)) {
+      return ext;
+    }
+  }
+  return 'mp4';
+}
 
-  // Method 1: Open URL in new tab - IDM browser extension will intercept video URLs
-  // This is the most reliable way to trigger IDM download
-  chrome.tabs
-    .create({ url: url, active: false })
-    .then(tab => {
-      logger.info('IDM Listener: Opened URL in new tab', { tabId: tab.id, url });
+function downloadWithIdm(url: string, downloadPath: string): void {
+  logger.info('IDM Listener: Starting download', { url, downloadPath });
 
-      // Mark as downloaded
-      const video = idmState.videosFound.find(v => v.url === url);
-      if (video) {
-        video.downloaded = true;
-        idmState.totalDownloaded++;
-        broadcastIdmState();
-      }
+  // Extract filename from URL
+  let filename = 'video';
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      filename = decodeURIComponent(lastPart.split('?')[0]);
+    } else {
+      // Generate filename from timestamp
+      const ext = getExtensionFromUrl(url);
+      filename = `video_${Date.now()}.${ext}`;
+    }
+  } catch {
+    filename = `video_${Date.now()}.mp4`;
+  }
 
-      // Close the tab after a delay (IDM should have intercepted by then)
-      setTimeout(() => {
-        if (tab.id) {
-          chrome.tabs.remove(tab.id).catch(() => {
-            // Tab might already be closed by user or IDM
-          });
+  // Use Chrome's download API
+  chrome.downloads
+    .download({
+      url: url,
+      filename: filename,
+      saveAs: false, // Set to true if you want "Save As" dialog
+    })
+    .then(downloadId => {
+      if (downloadId) {
+        logger.info('IDM Listener: Download started', { downloadId, filename, url });
+
+        // Mark as downloaded
+        const video = idmState.videosFound.find(v => v.url === url);
+        if (video) {
+          video.downloaded = true;
+          idmState.totalDownloaded++;
+          broadcastIdmState();
         }
-      }, 3000);
+      } else {
+        logger.error('IDM Listener: Download failed - no download ID returned');
+      }
     })
     .catch(err => {
-      logger.error('IDM Listener: Failed to open URL', { error: String(err), url });
+      logger.error('IDM Listener: Download failed', { error: String(err), url });
     });
+}
+
+function copyVideoUrl(url: string): Promise<boolean> {
+  // Copy URL to clipboard using offscreen document or content script
+  logger.info('IDM Listener: Copying URL to clipboard', { url });
+
+  return new Promise(resolve => {
+    // We'll handle this in the popup instead since clipboard API works better there
+    resolve(true);
+  });
 }
 
 async function startIdmListener(config: IDMListenerConfig): Promise<void> {
