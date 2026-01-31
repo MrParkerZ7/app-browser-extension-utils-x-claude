@@ -9,7 +9,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'tab-logging', label: 'Logging' },
   { id: 'tab-css-counter', label: 'HTML Counter' },
   { id: 'tab-fb-reply', label: 'FB Auto' },
-  { id: 'tab-idm', label: 'IDM' },
+  { id: 'tab-idm', label: 'Video DL' },
 ];
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {

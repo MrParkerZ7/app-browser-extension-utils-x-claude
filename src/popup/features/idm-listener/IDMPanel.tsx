@@ -46,7 +46,7 @@ export function IDMPanel() {
             >
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-            <span>IDM Video Listener</span>
+            <span>Bulk Video Download</span>
           </div>
 
           <div className={`fb-notif-section-content ${isCollapsed ? 'collapsed' : ''}`}>
