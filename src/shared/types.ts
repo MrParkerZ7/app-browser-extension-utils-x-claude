@@ -160,10 +160,57 @@ export type MessageType =
       payload: { filters: FBNotificationFilter; expandPrevious: boolean };
     }
   | { type: 'FB_NOTIF_SCAN_RESULT'; payload: FBNotificationScanResult }
-  | { type: 'FB_GET_BOOKMARK_FOLDERS'; payload?: undefined };
+  | { type: 'FB_GET_BOOKMARK_FOLDERS'; payload?: undefined }
+  // IDM Video Listener messages
+  | { type: 'IDM_START_LISTENER'; payload: IDMListenerConfig }
+  | { type: 'IDM_STOP_LISTENER'; payload?: undefined }
+  | { type: 'IDM_GET_STATE'; payload?: undefined }
+  | { type: 'IDM_STATE_UPDATE'; payload: IDMListenerState }
+  | { type: 'IDM_SAVE_CONFIG'; payload: IDMListenerConfig }
+  | { type: 'IDM_GET_CONFIG'; payload?: undefined }
+  | { type: 'IDM_SCAN_PAGE'; payload?: undefined }
+  | { type: 'IDM_SCAN_RESULT'; payload: IDMScanResult }
+  | { type: 'IDM_VIDEO_FOUND'; payload: IDMVideoLink }
+  | { type: 'IDM_DOWNLOAD_VIDEO'; payload: { url: string; downloadPath: string } }
+  | { type: 'IDM_CLEAR_VIDEOS'; payload?: undefined }
+  // IDM content script specific messages
+  | { type: 'IDM_START_OBSERVER'; payload?: undefined }
+  | { type: 'IDM_STOP_OBSERVER'; payload?: undefined };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;
   data?: T;
+  error?: string;
+}
+
+// IDM Video Listener types
+export interface IDMListenerConfig {
+  enabled: boolean;
+  downloadPath: string;
+  autoDownload: boolean;
+  videoExtensions: string[];
+}
+
+export interface IDMVideoLink {
+  id: string;
+  url: string;
+  title: string;
+  type: string;
+  timestamp: number;
+  tabId?: number;
+  tabUrl?: string;
+  downloaded: boolean;
+}
+
+export interface IDMListenerState {
+  running: boolean;
+  videosFound: IDMVideoLink[];
+  totalFound: number;
+  totalDownloaded: number;
+}
+
+export interface IDMScanResult {
+  success: boolean;
+  videos: IDMVideoLink[];
   error?: string;
 }

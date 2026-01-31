@@ -7,6 +7,8 @@ import {
   FBNotificationFilter,
   FBNotificationItem,
   FBNotificationScanResult,
+  IDMVideoLink,
+  IDMScanResult,
 } from '../shared/types';
 import { wait } from '../shared/utils';
 
@@ -1435,6 +1437,211 @@ if (!alreadyInitialized) {
     }
   }
 
+  // ============================================
+  // IDM Video Link Detection
+  // ============================================
+
+  const videoExtensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd'];
+  const seenVideoUrls = new Set<string>();
+
+  function isVideoUrl(url: string): boolean {
+    const lowerUrl = url.toLowerCase();
+    return videoExtensions.some(
+      ext =>
+        lowerUrl.includes(`.${ext}`) ||
+        lowerUrl.endsWith(`.${ext}`) ||
+        lowerUrl.includes(`/${ext}?`) ||
+        lowerUrl.includes(`format=${ext}`)
+    );
+  }
+
+  function extractVideoTitle(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      const filename = pathParts[pathParts.length - 1];
+      if (filename && filename.includes('.')) {
+        return decodeURIComponent(filename.split('.')[0]);
+      }
+      return document.title || 'Untitled Video';
+    } catch {
+      return document.title || 'Untitled Video';
+    }
+  }
+
+  function getVideoType(url: string): string {
+    const lowerUrl = url.toLowerCase();
+    for (const ext of videoExtensions) {
+      if (lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`format=${ext}`)) {
+        return ext.toUpperCase();
+      }
+    }
+    return 'VIDEO';
+  }
+
+  function generateVideoId(): string {
+    return `vid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  function reportVideoLink(url: string): void {
+    if (seenVideoUrls.has(url)) return;
+    seenVideoUrls.add(url);
+
+    const video: IDMVideoLink = {
+      id: generateVideoId(),
+      url,
+      title: extractVideoTitle(url),
+      type: getVideoType(url),
+      timestamp: Date.now(),
+      tabUrl: window.location.href,
+      downloaded: false,
+    };
+
+    // Send to background
+    sendMessageToBackground({ type: 'IDM_VIDEO_FOUND', payload: video }).catch(() => {
+      // Ignore errors
+    });
+
+    logger.info('IDM: Video link found', { url, type: video.type });
+  }
+
+  function scanPageForVideos(): IDMVideoLink[] {
+    const videos: IDMVideoLink[] = [];
+
+    // Scan video elements
+    document.querySelectorAll('video').forEach(video => {
+      if (video.src && isVideoUrl(video.src)) {
+        reportVideoLink(video.src);
+      }
+      // Check source elements inside video
+      video.querySelectorAll('source').forEach(source => {
+        if (source.src && isVideoUrl(source.src)) {
+          reportVideoLink(source.src);
+        }
+      });
+    });
+
+    // Scan all links
+    document.querySelectorAll('a[href]').forEach(link => {
+      const href = (link as HTMLAnchorElement).href;
+      if (href && isVideoUrl(href)) {
+        reportVideoLink(href);
+      }
+    });
+
+    // Scan iframes (for embedded videos)
+    document.querySelectorAll('iframe[src]').forEach(iframe => {
+      const src = (iframe as HTMLIFrameElement).src;
+      if (src && isVideoUrl(src)) {
+        reportVideoLink(src);
+      }
+    });
+
+    // Scan object and embed elements
+    document.querySelectorAll('object[data], embed[src]').forEach(el => {
+      const src = el.getAttribute('data') || el.getAttribute('src');
+      if (src && isVideoUrl(src)) {
+        reportVideoLink(src);
+      }
+    });
+
+    // Return found videos for scan result
+    seenVideoUrls.forEach(url => {
+      videos.push({
+        id: generateVideoId(),
+        url,
+        title: extractVideoTitle(url),
+        type: getVideoType(url),
+        timestamp: Date.now(),
+        tabUrl: window.location.href,
+        downloaded: false,
+      });
+    });
+
+    return videos;
+  }
+
+  // MutationObserver to detect dynamically added videos
+  let videoObserver: MutationObserver | null = null;
+
+  function startVideoObserver(): void {
+    if (videoObserver) return;
+
+    videoObserver = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        // Check added nodes
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as Element;
+
+            // Check if it's a video element
+            if (el.tagName === 'VIDEO') {
+              const video = el as HTMLVideoElement;
+              if (video.src && isVideoUrl(video.src)) {
+                reportVideoLink(video.src);
+              }
+            }
+
+            // Check nested video elements
+            el.querySelectorAll?.('video')?.forEach(video => {
+              if (video.src && isVideoUrl(video.src)) {
+                reportVideoLink(video.src);
+              }
+              video.querySelectorAll('source').forEach(source => {
+                if (source.src && isVideoUrl(source.src)) {
+                  reportVideoLink(source.src);
+                }
+              });
+            });
+
+            // Check links
+            if (el.tagName === 'A') {
+              const href = (el as HTMLAnchorElement).href;
+              if (href && isVideoUrl(href)) {
+                reportVideoLink(href);
+              }
+            }
+
+            el.querySelectorAll?.('a[href]')?.forEach(link => {
+              const href = (link as HTMLAnchorElement).href;
+              if (href && isVideoUrl(href)) {
+                reportVideoLink(href);
+              }
+            });
+          }
+        });
+
+        // Check attribute changes on video elements
+        if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
+          const el = mutation.target as Element;
+          if (el.tagName === 'VIDEO' && mutation.attributeName === 'src') {
+            const src = (el as HTMLVideoElement).src;
+            if (src && isVideoUrl(src)) {
+              reportVideoLink(src);
+            }
+          }
+        }
+      }
+    });
+
+    videoObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src', 'href', 'data'],
+    });
+
+    logger.info('IDM: Video observer started');
+  }
+
+  function stopVideoObserver(): void {
+    if (videoObserver) {
+      videoObserver.disconnect();
+      videoObserver = null;
+      logger.info('IDM: Video observer stopped');
+    }
+  }
+
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Check if extension context is still valid
@@ -1483,7 +1690,32 @@ if (!alreadyInitialized) {
       return true; // Keep channel open for async response
     }
 
-    return true;
+    // IDM Video Listener commands (content script specific)
+    if (message.type === 'IDM_SCAN_PAGE') {
+      const videos = scanPageForVideos();
+      const result: IDMScanResult = {
+        success: true,
+        videos,
+      };
+      sendResponse(result);
+      return true;
+    }
+
+    if (message.type === 'IDM_START_OBSERVER') {
+      startVideoObserver();
+      scanPageForVideos(); // Initial scan
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (message.type === 'IDM_STOP_OBSERVER') {
+      stopVideoObserver();
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Don't respond to messages not meant for content script
+    return false;
   });
 
   // Example: DOM manipulation

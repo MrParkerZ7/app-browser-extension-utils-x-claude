@@ -13,6 +13,10 @@ import {
   BookmarkFolder,
   FBTemplateSelectionMode,
   FBReplyTemplate,
+  IDMListenerConfig,
+  IDMListenerState,
+  IDMVideoLink,
+  IDMScanResult,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -940,17 +944,156 @@ async function waitForTabLoad(tabId: number, timeout = 30000): Promise<void> {
 }
 
 // ============================================
+// IDM Video Listener Service
+// ============================================
+
+const idmState: IDMListenerState = {
+  running: false,
+  videosFound: [],
+  totalFound: 0,
+  totalDownloaded: 0,
+};
+
+let idmConfig: IDMListenerConfig = {
+  enabled: false,
+  downloadPath: 'C:\\Downloads\\Videos',
+  autoDownload: false,
+  videoExtensions: ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts'],
+};
+
+function broadcastIdmState(): void {
+  chrome.runtime.sendMessage({ type: 'IDM_STATE_UPDATE', payload: idmState }).catch(() => {
+    // Ignore errors when popup is closed
+  });
+}
+
+async function loadIdmConfig(): Promise<void> {
+  const stored = await chrome.storage.local.get(['idmConfig']);
+  if (stored.idmConfig) {
+    idmConfig = stored.idmConfig;
+  }
+}
+
+async function saveIdmConfig(config: IDMListenerConfig): Promise<void> {
+  idmConfig = config;
+  await chrome.storage.local.set({ idmConfig: config });
+}
+
+function isVideoUrl(url: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  return idmConfig.videoExtensions.some(
+    ext => lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`/${ext}`) || lowerUrl.includes(`=${ext}`)
+  );
+}
+
+function addVideoLink(video: IDMVideoLink): void {
+  // Check if already exists
+  const exists = idmState.videosFound.some(v => v.url === video.url);
+  if (!exists) {
+    idmState.videosFound.push(video);
+    idmState.totalFound++;
+    logger.info('IDM Listener: Video found', { url: video.url, title: video.title });
+    broadcastIdmState();
+
+    // Auto download if enabled
+    if (idmConfig.autoDownload) {
+      downloadWithIdm(video.url, idmConfig.downloadPath);
+    }
+  }
+}
+
+function downloadWithIdm(url: string, downloadPath: string): void {
+  // IDM integration via custom protocol
+  // IDM registers idm:// protocol handler when installed
+  const idmUrl = `idm://download?url=${encodeURIComponent(url)}&path=${encodeURIComponent(downloadPath)}`;
+
+  logger.info('IDM Listener: Sending to IDM', { url, downloadPath });
+
+  // Try to open IDM via protocol handler
+  // Note: This requires IDM to be installed and the protocol handler registered
+  chrome.tabs.create({ url: idmUrl, active: false }).then(tab => {
+    // Close the tab after a short delay
+    setTimeout(() => {
+      if (tab.id) {
+        chrome.tabs.remove(tab.id).catch(() => {});
+      }
+    }, 1000);
+  }).catch(err => {
+    logger.error('IDM Listener: Failed to send to IDM', { error: String(err) });
+  });
+
+  // Mark as downloaded
+  const video = idmState.videosFound.find(v => v.url === url);
+  if (video) {
+    video.downloaded = true;
+    idmState.totalDownloaded++;
+    broadcastIdmState();
+  }
+}
+
+async function startIdmListener(config: IDMListenerConfig): Promise<void> {
+  logger.info('IDM Listener: Starting', { config });
+
+  idmConfig = config;
+  await saveIdmConfig(config);
+
+  idmState.running = true;
+  broadcastIdmState();
+
+  // Inject content script into all existing tabs and start observer
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/index.js'],
+        });
+        // Tell content script to start observing
+        await chrome.tabs.sendMessage(tab.id, { type: 'IDM_START_OBSERVER' }).catch(() => {});
+      } catch {
+        // Ignore errors for restricted tabs
+      }
+    }
+  }
+}
+
+async function stopIdmListener(): Promise<void> {
+  logger.info('IDM Listener: Stopping');
+
+  idmState.running = false;
+  broadcastIdmState();
+
+  // Tell all content scripts to stop observing
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'IDM_STOP_OBSERVER' }).catch(() => {});
+    }
+  }
+}
+
+function clearIdmVideos(): void {
+  idmState.videosFound = [];
+  idmState.totalFound = 0;
+  idmState.totalDownloaded = 0;
+  broadcastIdmState();
+}
+
+// ============================================
 // Extension lifecycle
 // ============================================
 
 chrome.runtime.onInstalled.addListener(async () => {
   logger.info('Extension installed');
   await loadNotifConfig();
+  await loadIdmConfig();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   logger.info('Extension started');
   await loadNotifConfig();
+  await loadIdmConfig();
 });
 
 // Listen for alarms
@@ -1073,6 +1216,56 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
         success: true,
         data: notifConfig,
       } as MessageResponse<FBNotificationListenerConfig>);
+      break;
+
+    // IDM Video Listener commands
+    case 'IDM_START_LISTENER':
+      startIdmListener(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IDM_STOP_LISTENER':
+      stopIdmListener().then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IDM_GET_STATE':
+      sendResponse({
+        success: true,
+        data: idmState,
+      } as MessageResponse<IDMListenerState>);
+      break;
+
+    case 'IDM_SAVE_CONFIG':
+      saveIdmConfig(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IDM_GET_CONFIG':
+      sendResponse({
+        success: true,
+        data: idmConfig,
+      } as MessageResponse<IDMListenerConfig>);
+      break;
+
+    case 'IDM_VIDEO_FOUND':
+      if (idmState.running) {
+        addVideoLink(message.payload);
+      }
+      sendResponse({ success: true } as MessageResponse);
+      break;
+
+    case 'IDM_DOWNLOAD_VIDEO':
+      downloadWithIdm(message.payload.url, message.payload.downloadPath);
+      sendResponse({ success: true } as MessageResponse);
+      break;
+
+    case 'IDM_CLEAR_VIDEOS':
+      clearIdmVideos();
+      sendResponse({ success: true } as MessageResponse);
       break;
 
     default:

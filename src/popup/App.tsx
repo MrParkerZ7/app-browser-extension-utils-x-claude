@@ -4,11 +4,12 @@ import { TabNavigation } from './components/TabNavigation';
 import { LoggingPanel } from './features/logging/LoggingPanel';
 import { CSSCounterPanel } from './features/css-counter/CSSCounterPanel';
 import { FBReplyPanel } from './features/fb-reply/FBReplyPanel';
+import { IDMPanel } from './features/idm-listener/IDMPanel';
 import { createLogger } from '../shared/logger';
 
 const logger = createLogger('popup');
 
-export type TabId = 'tab-logging' | 'tab-css-counter' | 'tab-fb-reply';
+export type TabId = 'tab-logging' | 'tab-css-counter' | 'tab-fb-reply' | 'tab-idm';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabId>('tab-logging');
@@ -46,6 +47,7 @@ export function App() {
         {activeTab === 'tab-logging' && <LoggingPanel />}
         {activeTab === 'tab-css-counter' && <CSSCounterPanel />}
         {activeTab === 'tab-fb-reply' && <FBReplyPanel />}
+        {activeTab === 'tab-idm' && <IDMPanel />}
       </div>
     </>
   );
