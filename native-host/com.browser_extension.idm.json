@@ -1,7 +1,0 @@
-{
-  "name": "com.browser_extension.idm",
-  "description": "Native messaging host for IDM integration",
-  "path": "idm-host.bat",
-  "type": "stdio",
-  "allowed_origins": ["chrome-extension://UPDATE_WITH_YOUR_EXTENSION_ID/"]
-}
