@@ -997,62 +997,16 @@ function addVideoLink(video: IDMVideoLink): void {
   }
 }
 
-function getExtensionFromUrl(url: string): string {
-  const lowerUrl = url.toLowerCase();
-  const extensions = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts', 'mpd', 'm4v', '3gp'];
-  for (const ext of extensions) {
-    if (lowerUrl.includes(`.${ext}`)) {
-      return ext;
-    }
+function downloadWithIdm(url: string, _downloadPath: string): void {
+  logger.info('IDM Listener: Copying URL to clipboard', { url });
+
+  // Mark as copied
+  const video = idmState.videosFound.find(v => v.url === url);
+  if (video) {
+    video.downloaded = true;
+    idmState.totalDownloaded++;
+    broadcastIdmState();
   }
-  return 'mp4';
-}
-
-function downloadWithIdm(url: string, downloadPath: string): void {
-  logger.info('IDM Listener: Starting download', { url, downloadPath });
-
-  // Extract filename from URL
-  let filename = 'video';
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/').filter(p => p);
-    const lastPart = pathParts[pathParts.length - 1];
-    if (lastPart && lastPart.includes('.')) {
-      filename = decodeURIComponent(lastPart.split('?')[0]);
-    } else {
-      // Generate filename from timestamp
-      const ext = getExtensionFromUrl(url);
-      filename = `video_${Date.now()}.${ext}`;
-    }
-  } catch {
-    filename = `video_${Date.now()}.mp4`;
-  }
-
-  // Use Chrome's download API
-  chrome.downloads
-    .download({
-      url: url,
-      filename: filename,
-      saveAs: false, // Set to true if you want "Save As" dialog
-    })
-    .then(downloadId => {
-      if (downloadId) {
-        logger.info('IDM Listener: Download started', { downloadId, filename, url });
-
-        // Mark as downloaded
-        const video = idmState.videosFound.find(v => v.url === url);
-        if (video) {
-          video.downloaded = true;
-          idmState.totalDownloaded++;
-          broadcastIdmState();
-        }
-      } else {
-        logger.error('IDM Listener: Download failed - no download ID returned');
-      }
-    })
-    .catch(err => {
-      logger.error('IDM Listener: Download failed', { error: String(err), url });
-    });
 }
 
 async function startIdmListener(config: IDMListenerConfig): Promise<void> {
