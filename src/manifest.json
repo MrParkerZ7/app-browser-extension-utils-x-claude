@@ -5,8 +5,20 @@
   "description": "A browser extension built with TypeScript and Webpack",
   "permissions": ["storage", "activeTab", "tabs", "scripting", "alarms", "bookmarks", "webRequest", "downloads", "clipboardWrite"],
   "host_permissions": ["*://*.facebook.com/*", "<all_urls>"],
+  "icons": {
+    "16": "icon/icon-v1.png",
+    "32": "icon/icon-v1.png",
+    "48": "icon/icon-v1.png",
+    "128": "icon/icon-v1.png"
+  },
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icon/icon-v1.png",
+      "32": "icon/icon-v1.png",
+      "48": "icon/icon-v1.png",
+      "128": "icon/icon-v1.png"
+    }
   },
   "background": {
     "service_worker": "background/index.js"
