@@ -7,8 +7,30 @@ A Chrome browser extension for Facebook automation built with TypeScript and Web
 ### 1. 💬 FB Auto Reply
 Automatically reply to Facebook comments with customizable templates.
 
+- **Source modes:** Scan open tabs or process bookmarks from a folder
+- **Template modes:** Random, Sequential, or Shuffled selection
+- **Actions:** Click reply, input text, upload images, submit reply
+- **Auto-close tabs** after replying
+
 ### 2. 🔔 FB Notification Listener
 Monitor Facebook notifications and automatically open matching ones in new tabs.
+
+### 3. 📹 Bulk Video Download
+Detect and collect video URLs from web pages for bulk downloading.
+
+- **Auto-detection:** Intercepts video URLs from network requests
+- **Supported sites:** TikTok, Facebook, Instagram, Twitter, and more
+- **Copy URLs:** Copy single or all URLs to clipboard for external download managers
+- **Chrome download:** Direct download through Chrome (may have limitations)
+
+#### 🎮 Usage:
+1. Click **Start Listener** to begin detection
+2. Browse pages with videos
+3. Videos appear in the list as they're detected
+4. Click **Copy** to copy URL, then paste into IDM/JDownloader
+5. Or click **DL** to download via Chrome
+
+ℹ️ See [docs/features/bulk-video-download.md](./docs/features/bulk-video-download.md) for detailed documentation.
 
 #### ⚙️ Configuration Options:
 - **Filters:**
@@ -34,7 +56,7 @@ Monitor Facebook notifications and automatically open matching ones in new tabs.
 - Notifications found
 - Tabs opened
 
-ℹ️ For detailed feature documentation, see [documentation/features](./documentation/features/).
+ℹ️ For detailed feature documentation, see [docs/features](./docs/features/).
 
 ## 🛠️ Development
 
@@ -85,9 +107,12 @@ src/
   content/          # Content scripts injected into pages
   popup/            # Extension popup UI
     features/       # Feature modules
-      fb-reply/          # FB Auto Reply feature
+      fb-reply/           # FB Auto Reply feature
       fb-notif-listener/  # FB Notification Listener feature
+      idm-listener/       # Bulk Video Download feature
   shared/           # Shared utilities and types
+docs/
+  features/         # Feature documentation
 ```
 
 ## 📝 TODO / Known Issues
