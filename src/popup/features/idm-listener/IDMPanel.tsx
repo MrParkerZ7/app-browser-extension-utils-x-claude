@@ -4,15 +4,27 @@ import { useIDMListener } from './useIDMListener';
 export function IDMPanel() {
   const {
     state,
+    config,
     status,
     startListener,
     stopListener,
+    updateConfig,
     downloadVideo,
     downloadAllVideos,
+    copyVideoUrl,
     clearVideos,
   } = useIDMListener();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateConfig({ downloadPath: e.target.value });
+  };
+
+  const handleAutoDownloadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateConfig({ autoDownload: e.target.checked });
+  };
+
   const undownloadedCount = state.videosFound.filter(v => !v.downloaded).length;
 
   return (
@@ -39,8 +51,32 @@ export function IDMPanel() {
 
           <div className={`fb-notif-section-content ${isCollapsed ? 'collapsed' : ''}`}>
             <p className="fb-reply-desc">
-              Detect video links on pages. Click to copy URL, then paste in IDM.
+              Automatically detect video links on pages and send them to IDM for download.
             </p>
+
+            <div className="fb-reply-settings">
+              <label className="fb-reply-label">Download path:</label>
+              <input
+                type="text"
+                className="fb-reply-input idm-path-input"
+                value={config.downloadPath}
+                onChange={handlePathChange}
+                placeholder="C:\Downloads\Videos"
+                disabled={state.running}
+              />
+            </div>
+
+            <div className="fb-reply-settings">
+              <label className="fb-action-checkbox">
+                <input
+                  type="checkbox"
+                  checked={config.autoDownload}
+                  onChange={handleAutoDownloadChange}
+                  disabled={state.running}
+                />
+                <span>Auto-download when video found</span>
+              </label>
+            </div>
 
             {status && (
               <div className={`fb-reply-status visible ${status.type}`}>{status.message}</div>
@@ -52,7 +88,7 @@ export function IDMPanel() {
                 <span className="idm-stat-value">{state.totalFound}</span>
               </div>
               <div className="idm-stat">
-                <span className="idm-stat-label">Copied:</span>
+                <span className="idm-stat-label">Downloaded:</span>
                 <span className="idm-stat-value">{state.totalDownloaded}</span>
               </div>
               <div className="idm-stat">
@@ -78,7 +114,7 @@ export function IDMPanel() {
                 onClick={downloadAllVideos}
                 disabled={undownloadedCount === 0}
               >
-                Copy All ({undownloadedCount})
+                Download All ({undownloadedCount})
               </button>
               <button
                 className="btn btn-secondary"
@@ -111,11 +147,19 @@ export function IDMPanel() {
                       </div>
                       <div className="idm-video-actions">
                         <button
+                          className="btn btn-small btn-secondary"
+                          onClick={() => copyVideoUrl(video)}
+                          title="Copy URL"
+                        >
+                          Copy
+                        </button>
+                        <button
                           className="btn btn-small btn-primary"
                           onClick={() => downloadVideo(video)}
-                          title={video.downloaded ? 'URL already copied' : 'Copy URL to clipboard'}
+                          disabled={video.downloaded}
+                          title={video.downloaded ? 'Already downloaded' : 'Download via Chrome'}
                         >
-                          {video.downloaded ? '✓' : 'Copy'}
+                          {video.downloaded ? '✓' : 'DL'}
                         </button>
                       </div>
                     </div>

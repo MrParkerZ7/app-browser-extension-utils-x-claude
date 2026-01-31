@@ -68,9 +68,14 @@ export function useIDMListener() {
   );
 
   const startListener = useCallback(async () => {
+    if (!config.downloadPath.trim()) {
+      showStatus('Please enter a download path.', 'error');
+      return;
+    }
+
     const response = await sendMessage({ type: 'IDM_START_LISTENER', payload: config });
     if (response?.success) {
-      showStatus('Listening for videos...', 'info');
+      showStatus('Video listener started.', 'info');
     } else {
       showStatus(response?.error || 'Failed to start listener.', 'error');
     }
@@ -83,55 +88,25 @@ export function useIDMListener() {
 
   const downloadVideo = useCallback(
     async (video: IDMVideoLink) => {
-      // Copy URL to clipboard
-      try {
-        await navigator.clipboard.writeText(video.url);
-      } catch {
-        // Fallback
-        const textArea = document.createElement('textarea');
-        textArea.value = video.url;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-
-      // Mark as copied in background
       await sendMessage({
         type: 'IDM_DOWNLOAD_VIDEO',
-        payload: { url: video.url, downloadPath: '' },
+        payload: { url: video.url, downloadPath: config.downloadPath },
       });
-      showStatus(`URL copied! Paste in IDM`, 'info');
+      showStatus(`Downloading: ${video.title}`, 'info');
     },
-    [showStatus]
+    [config.downloadPath, showStatus]
   );
 
   const downloadAllVideos = useCallback(async () => {
     const undownloaded = state.videosFound.filter(v => !v.downloaded);
-    if (undownloaded.length === 0) return;
-
-    // Copy all URLs to clipboard (one per line)
-    const urls = undownloaded.map(v => v.url).join('\n');
-    try {
-      await navigator.clipboard.writeText(urls);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = urls;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-
-    // Mark all as copied
     for (const video of undownloaded) {
       await sendMessage({
         type: 'IDM_DOWNLOAD_VIDEO',
-        payload: { url: video.url, downloadPath: '' },
+        payload: { url: video.url, downloadPath: config.downloadPath },
       });
     }
-    showStatus(`${undownloaded.length} URLs copied! Paste in IDM`, 'info');
-  }, [state.videosFound, showStatus]);
+    showStatus(`Started downloading ${undownloaded.length} videos.`, 'info');
+  }, [state.videosFound, config.downloadPath, showStatus]);
 
   const copyVideoUrl = useCallback(
     async (video: IDMVideoLink) => {
