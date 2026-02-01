@@ -1672,8 +1672,56 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // WebRequest listener for video URL interception
 // ============================================
 
+// Common video URL patterns to detect
+const videoUrlPatterns = [
+  // Direct video file extensions (use negative lookahead to avoid .avi matching .avif)
+  /\.mp4(?![a-z0-9])/i,
+  /\.webm(?![a-z0-9])/i,
+  /\.mkv(?![a-z0-9])/i,
+  /\.avi(?![a-z0-9])/i,
+  /\.mov(?![a-z0-9])/i,
+  /\.flv(?![a-z0-9])/i,
+  /\.m4v(?![a-z0-9])/i,
+  /\.3gp(?![a-z0-9])/i,
+  // Streaming formats
+  /\.m3u8(?![a-z0-9])/i,
+  /\.mpd(?![a-z0-9])/i,
+  /\.ts(?![a-z0-9])/i,
+  // Common video CDN patterns
+  /\/video\/|\/videos?\//i,
+  /playback|stream|media/i,
+  // TikTok specific
+  /tiktokcdn.*video/i,
+  /v\d+\.tiktokcdn/i,
+  /muscdn.*video/i,
+  // Facebook/Instagram
+  /fbcdn.*video/i,
+  /cdninstagram.*video/i,
+  // Twitter/X
+  /video\.twimg/i,
+  // Generic video indicators
+  /mime.*video/i,
+  /content-type.*video/i,
+];
+
 // Patterns to exclude from video detection
-const videoExcludePatterns = [/\/ads?\//i, /\/tracking/i, /\/analytics/i, /\/pixel/i, /beacon/i];
+const videoExcludePatterns = [
+  /\/ads?\//i,
+  /\/tracking/i,
+  /\/analytics/i,
+  /\/pixel/i,
+  /beacon/i,
+  // Exclude image files
+  /\.avif(?![a-z0-9])/i,
+  /\.jpg(?![a-z0-9])/i,
+  /\.jpeg(?![a-z0-9])/i,
+  /\.png(?![a-z0-9])/i,
+  /\.gif(?![a-z0-9])/i,
+  /\.webp(?![a-z0-9])/i,
+  /\.svg(?![a-z0-9])/i,
+  /\.bmp(?![a-z0-9])/i,
+  /\.ico(?![a-z0-9])/i,
+];
 
 function isNetworkVideoUrl(url: string): boolean {
   // Skip blob URLs - they can't be downloaded externally
@@ -1690,22 +1738,9 @@ function isNetworkVideoUrl(url: string): boolean {
     }
   }
 
-  // Only check configured extensions - respect user selection
-  const enabledExtensions = idmConfig.videoExtensions || [];
-  if (enabledExtensions.length === 0) {
-    return false;
-  }
-
-  // Check if URL contains any of the enabled extensions
-  // Use negative lookahead to avoid .avi matching .avif
-  for (const ext of enabledExtensions) {
-    // Match .ext NOT followed by alphanumeric (prevents .avi matching .avif)
-    const extPattern = new RegExp(`\\.${ext}(?![a-z0-9])`, 'i');
-    if (extPattern.test(lowerUrl)) {
-      return true;
-    }
-    // Also check format parameter
-    if (lowerUrl.includes(`format=${ext}`) || lowerUrl.includes(`mime=video/${ext}`)) {
+  // Check against video patterns
+  for (const pattern of videoUrlPatterns) {
+    if (pattern.test(lowerUrl)) {
       return true;
     }
   }
