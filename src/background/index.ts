@@ -1305,9 +1305,10 @@ function isNetworkImageUrl(url: string): boolean {
   }
 
   // Check if URL contains any of the enabled extensions
-  // Use regex for precise matching to avoid partial matches
+  // Use negative lookahead to avoid partial matches (e.g., .jpg not matching .jpgx)
   for (const ext of enabledExtensions) {
-    const extPattern = new RegExp(`\\.${ext}(?:[?#/:]|$)`, 'i');
+    // Match .ext NOT followed by alphanumeric
+    const extPattern = new RegExp(`\\.${ext}(?![a-z0-9])`, 'i');
     if (extPattern.test(lowerUrl)) {
       return true;
     }
@@ -1688,9 +1689,10 @@ function isNetworkVideoUrl(url: string): boolean {
   }
 
   // Check if URL contains any of the enabled extensions
-  // Use regex for precise matching to avoid .avi matching .avif
+  // Use negative lookahead to avoid .avi matching .avif
   for (const ext of enabledExtensions) {
-    const extPattern = new RegExp(`\\.${ext}(?:[?#/]|$)`, 'i');
+    // Match .ext NOT followed by alphanumeric (prevents .avi matching .avif)
+    const extPattern = new RegExp(`\\.${ext}(?![a-z0-9])`, 'i');
     if (extPattern.test(lowerUrl)) {
       return true;
     }
