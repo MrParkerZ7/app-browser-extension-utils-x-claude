@@ -194,18 +194,21 @@ export function useIDMListener() {
 
       const referer = video.tabUrl || '';
 
-      // Use simple batch format - works in cmd.exe
+      // Use PowerShell format with & operator and escaped quotes
+      const escapedUrl = video.url.replace(/'/g, "''");
+      const escapedReferer = referer.replace(/'/g, "''");
+
       if (referer) {
-        return `"${idmPath}" /d "${video.url}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a`;
+        return `& '${idmPath}' /d '${escapedUrl}' /p '${downloadPath}' /f '${filename}' /r '${escapedReferer}' /n /a`;
       }
-      return `"${idmPath}" /d "${video.url}" /p "${downloadPath}" /f "${filename}" /n /a`;
+      return `& '${idmPath}' /d '${escapedUrl}' /p '${downloadPath}' /f '${filename}' /n /a`;
     });
 
     const script = commands.join('\n');
 
     try {
       await navigator.clipboard.writeText(script);
-      showStatus(`Copied ${videos.length} IDM commands. Paste in CMD (not PowerShell).`, 'info');
+      showStatus(`Copied ${videos.length} IDM commands. Paste in PowerShell.`, 'info');
     } catch {
       const textArea = document.createElement('textarea');
       textArea.value = script;
@@ -213,7 +216,7 @@ export function useIDMListener() {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      showStatus(`Copied ${videos.length} IDM commands. Paste in CMD (not PowerShell).`, 'info');
+      showStatus(`Copied ${videos.length} IDM commands. Paste in PowerShell.`, 'info');
     }
   }, [state.videosFound, config.downloadPath, config.idmPath, showStatus]);
 
