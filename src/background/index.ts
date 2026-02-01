@@ -1124,8 +1124,8 @@ let imageConfig: ImageListenerConfig = {
   downloadPath: 'C:\\Downloads\\Images',
   autoDownload: false,
   imageExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'avif'],
-  minWidth: 100,
-  minHeight: 100,
+  minWidth: 720,
+  minHeight: 720,
 };
 
 function broadcastImageState(): void {
