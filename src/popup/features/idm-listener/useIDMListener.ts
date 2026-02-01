@@ -149,17 +149,55 @@ export function useIDMListener() {
   }, [state.videosFound, showStatus]);
 
   const copyIdmPowerShellCommands = useCallback(async () => {
-    const videos = state.videosFound.filter(v => !v.downloaded);
+    // Video file extensions to include
+    const videoExtensions = [
+      'mp4',
+      'webm',
+      'mkv',
+      'avi',
+      'mov',
+      'flv',
+      'm3u8',
+      'ts',
+      'mpd',
+      'm4v',
+      '3gp',
+      'hls',
+      'dash',
+    ];
+
+    // Filter only video files (exclude images like avif, jpg, png, etc.)
+    const videos = state.videosFound.filter(v => {
+      if (v.downloaded) return false;
+
+      const lowerType = v.type.toLowerCase();
+      const lowerUrl = v.url.toLowerCase();
+
+      // Check if type matches video extensions
+      if (videoExtensions.includes(lowerType)) return true;
+      if (lowerType === 'video') return true;
+
+      // Check URL for video extensions
+      for (const ext of videoExtensions) {
+        if (lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`mime_type=video`)) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
     if (videos.length === 0) {
-      showStatus('No videos to download.', 'warning');
+      showStatus('No video files to download.', 'warning');
       return;
     }
 
-    // Generate IDM PowerShell commands
-    // IDM command format: IDMan.exe /d "URL" /p "PATH" /f "FILENAME" /n /a
+    // Generate IDM PowerShell commands using Start-Process
+    // IDM command format: IDMan.exe /d "URL" /p "PATH" /f "FILENAME" /r "REFERER" /n /a
     // /d - URL to download
     // /p - local path to save
     // /f - filename
+    // /r - referer URL
     // /n - turn on silent mode
     // /a - add to download queue
     const idmPath = 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
@@ -182,10 +220,16 @@ export function useIDMListener() {
         filename = `video_${Date.now()}_${index + 1}.mp4`;
       }
 
-      // Escape double quotes in URL
-      const escapedUrl = video.url.replace(/"/g, '`"');
+      // Escape single quotes by doubling them for PowerShell
+      const escapedUrl = video.url.replace(/'/g, "''");
+      const referer = video.tabUrl ? video.tabUrl.replace(/'/g, "''") : '';
 
-      return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a`;
+      // Use Start-Process for more reliable execution
+      // Include referer if available
+      if (referer) {
+        return `Start-Process '${idmPath}' -ArgumentList '/d','${escapedUrl}','/p','${downloadPath}','/f','${filename}','/r','${referer}','/n','/a'`;
+      }
+      return `Start-Process '${idmPath}' -ArgumentList '/d','${escapedUrl}','/p','${downloadPath}','/f','${filename}','/n','/a'`;
     });
 
     const script = commands.join('\n');
