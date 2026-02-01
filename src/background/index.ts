@@ -1659,13 +1659,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // ============================================
 
 // Patterns to exclude from video detection
-const videoExcludePatterns = [
-  /\/ads?\//i,
-  /\/tracking/i,
-  /\/analytics/i,
-  /\/pixel/i,
-  /beacon/i,
-];
+const videoExcludePatterns = [/\/ads?\//i, /\/tracking/i, /\/analytics/i, /\/pixel/i, /beacon/i];
 
 function isNetworkVideoUrl(url: string): boolean {
   // Skip blob URLs - they can't be downloaded externally

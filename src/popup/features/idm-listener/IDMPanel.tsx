@@ -112,54 +112,60 @@ export function IDMPanel() {
               <label className="fb-reply-label">Video extensions:</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
                 {/* All extensions (default + custom) inline */}
-                {[...new Set([...DEFAULT_EXTENSIONS, ...(config.videoExtensions || [])])].map(ext => {
-                  const isCustom = !DEFAULT_EXTENSIONS.includes(ext);
-                  const isEnabled = (config.videoExtensions || []).includes(ext);
-                  return (
-                    <label
-                      key={ext}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 8px',
-                        backgroundColor: isEnabled ? (isCustom ? '#2b6cb0' : '#4a5568') : '#2d3748',
-                        borderRadius: '4px',
-                        cursor: state.running ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isEnabled}
-                        onChange={() => handleExtensionToggle(ext)}
-                        disabled={state.running}
-                        style={{ margin: 0 }}
-                      />
-                      <span>.{ext}</span>
-                      {isCustom && (
-                        <button
-                          onClick={e => {
-                            e.preventDefault();
-                            handleRemoveExtension(ext);
-                          }}
+                {[...new Set([...DEFAULT_EXTENSIONS, ...(config.videoExtensions || [])])].map(
+                  ext => {
+                    const isCustom = !DEFAULT_EXTENSIONS.includes(ext);
+                    const isEnabled = (config.videoExtensions || []).includes(ext);
+                    return (
+                      <label
+                        key={ext}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 8px',
+                          backgroundColor: isEnabled
+                            ? isCustom
+                              ? '#2b6cb0'
+                              : '#4a5568'
+                            : '#2d3748',
+                          borderRadius: '4px',
+                          cursor: state.running ? 'not-allowed' : 'pointer',
+                          fontSize: '12px',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={() => handleExtensionToggle(ext)}
                           disabled={state.running}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#fff',
-                            cursor: state.running ? 'not-allowed' : 'pointer',
-                            padding: '0 2px',
-                            fontSize: '12px',
-                            lineHeight: 1,
-                          }}
-                        >
-                          x
-                        </button>
-                      )}
-                    </label>
-                  );
-                })}
+                          style={{ margin: 0 }}
+                        />
+                        <span>.{ext}</span>
+                        {isCustom && (
+                          <button
+                            onClick={e => {
+                              e.preventDefault();
+                              handleRemoveExtension(ext);
+                            }}
+                            disabled={state.running}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#fff',
+                              cursor: state.running ? 'not-allowed' : 'pointer',
+                              padding: '0 2px',
+                              fontSize: '12px',
+                              lineHeight: 1,
+                            }}
+                          >
+                            x
+                          </button>
+                        )}
+                      </label>
+                    );
+                  }
+                )}
               </div>
 
               {/* Add custom extension */}

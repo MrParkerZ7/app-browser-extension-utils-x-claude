@@ -160,7 +160,8 @@ export function useIDMListener() {
 
     // Generate batch/cmd commands (more reliable than PowerShell for IDM)
     // IDM command format: IDMan.exe /d "URL" /p "PATH" /f "FILENAME" /r "REFERER" /n /a
-    const idmPath = config.idmPath || 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
+    const idmPath =
+      config.idmPath || 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
     const downloadPath = config.downloadPath.replace(/\//g, '\\');
 
     const commands = videos.map((video, index) => {
