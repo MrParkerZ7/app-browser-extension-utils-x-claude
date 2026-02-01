@@ -126,6 +126,95 @@ describe('Logger', () => {
       );
     });
   });
+
+  describe('invalid chrome context', () => {
+    it('should return early in sendLog when chrome.runtime.id is undefined', () => {
+      // Save original
+      const originalId = chrome.runtime.id;
+      // Simulate invalid extension context
+      Object.defineProperty(chrome.runtime, 'id', {
+        value: undefined,
+        configurable: true,
+      });
+
+      const logger = createLogger('popup');
+      logger.info('Test message');
+
+      // Should not call sendMessage when context is invalid
+      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+      // Should not log to console either (early return before console.log)
+      expect(consoleSpy.log).not.toHaveBeenCalled();
+
+      // Restore
+      Object.defineProperty(chrome.runtime, 'id', {
+        value: originalId,
+        configurable: true,
+      });
+    });
+
+    it('should return early in safeSendMessage when chrome.runtime.id becomes undefined', () => {
+      // Create logger with valid context first
+      const logger = createLogger('popup');
+
+      // Track access count to change behavior between sendLog check and safeSendMessage check
+      let idAccessCount = 0;
+      const originalId = chrome.runtime.id;
+      const originalSendMessage = chrome.runtime.sendMessage;
+
+      // Create a runtime object where id changes on subsequent accesses
+      // The check happens at: line 15 (sendLog), line 47 (safeSendMessage)
+      // We need id to be valid at line 15 but undefined at line 47
+      Object.defineProperty(chrome.runtime, 'id', {
+        get() {
+          idAccessCount++;
+          // Line 15 check is first access - return valid id
+          // Line 47 check is second access - return undefined
+          return idAccessCount === 1 ? originalId : undefined;
+        },
+        configurable: true,
+      });
+
+      logger.info('Test message');
+
+      // Should not call sendMessage since we return early in safeSendMessage
+      expect(originalSendMessage).not.toHaveBeenCalled();
+
+      // Restore
+      Object.defineProperty(chrome.runtime, 'id', {
+        value: originalId,
+        configurable: true,
+      });
+    });
+
+    it('should handle case when chrome is undefined for non-background logger', () => {
+      // Save original chrome
+      const originalChrome = globalThis.chrome;
+
+      // Create logger before removing chrome
+      const logger = createLogger('content');
+
+      // Remove chrome to simulate extension context invalidation
+      (globalThis as any).chrome = undefined;
+
+      // This should not throw
+      expect(() => logger.info('Test')).not.toThrow();
+
+      // Restore chrome
+      (globalThis as any).chrome = originalChrome;
+    });
+
+    it('should catch errors thrown during sendMessage', () => {
+      const logger = createLogger('popup');
+
+      // Make sendMessage throw an error
+      (chrome.runtime.sendMessage as jest.Mock).mockImplementation(() => {
+        throw new Error('Extension context invalidated');
+      });
+
+      // This should not throw - error is caught
+      expect(() => logger.info('Test message')).not.toThrow();
+    });
+  });
 });
 
 describe('getLogs', () => {
