@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useImageListener } from './useImageListener';
 
+const DEFAULT_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'avif'];
+
 export function ImagePanel() {
   const {
     state,
@@ -17,6 +19,7 @@ export function ImagePanel() {
   } = useImageListener();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [newExtension, setNewExtension] = useState('');
 
   const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateConfig({ downloadPath: e.target.value });
@@ -34,6 +37,27 @@ export function ImagePanel() {
   const handleMinHeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10) || 0;
     updateConfig({ minHeight: value });
+  };
+
+  const handleExtensionToggle = (ext: string) => {
+    const current = config.imageExtensions || [];
+    if (current.includes(ext)) {
+      updateConfig({ imageExtensions: current.filter(e => e !== ext) });
+    } else {
+      updateConfig({ imageExtensions: [...current, ext] });
+    }
+  };
+
+  const handleAddExtension = () => {
+    const ext = newExtension.trim().toLowerCase().replace(/^\./, '');
+    if (ext && !(config.imageExtensions || []).includes(ext)) {
+      updateConfig({ imageExtensions: [...(config.imageExtensions || []), ext] });
+      setNewExtension('');
+    }
+  };
+
+  const handleRemoveExtension = (ext: string) => {
+    updateConfig({ imageExtensions: (config.imageExtensions || []).filter(e => e !== ext) });
   };
 
   const undownloadedCount = state.imagesFound.filter(i => !i.downloaded).length;
@@ -103,6 +127,95 @@ export function ImagePanel() {
                   disabled={state.running}
                   style={{ width: '100%' }}
                 />
+              </div>
+            </div>
+
+            <div className="fb-reply-settings">
+              <label className="fb-reply-label">Image extensions:</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                {DEFAULT_EXTENSIONS.map(ext => (
+                  <label
+                    key={ext}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      backgroundColor: (config.imageExtensions || []).includes(ext)
+                        ? '#4a5568'
+                        : '#2d3748',
+                      borderRadius: '4px',
+                      cursor: state.running ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(config.imageExtensions || []).includes(ext)}
+                      onChange={() => handleExtensionToggle(ext)}
+                      disabled={state.running}
+                      style={{ margin: 0 }}
+                    />
+                    <span>.{ext}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Custom extensions */}
+              {(config.imageExtensions || [])
+                .filter(ext => !DEFAULT_EXTENSIONS.includes(ext))
+                .map(ext => (
+                  <span
+                    key={ext}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      backgroundColor: '#2b6cb0',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      marginTop: '6px',
+                      marginRight: '6px',
+                    }}
+                  >
+                    .{ext}
+                    <button
+                      onClick={() => handleRemoveExtension(ext)}
+                      disabled={state.running}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#fff',
+                        cursor: state.running ? 'not-allowed' : 'pointer',
+                        padding: '0 2px',
+                        fontSize: '14px',
+                      }}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+
+              {/* Add custom extension */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <input
+                  type="text"
+                  className="fb-reply-input"
+                  value={newExtension}
+                  onChange={e => setNewExtension(e.target.value)}
+                  placeholder="Add extension (e.g., raw)"
+                  disabled={state.running}
+                  style={{ flex: 1 }}
+                  onKeyDown={e => e.key === 'Enter' && handleAddExtension()}
+                />
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={handleAddExtension}
+                  disabled={state.running || !newExtension.trim()}
+                >
+                  Add
+                </button>
               </div>
             </div>
 
