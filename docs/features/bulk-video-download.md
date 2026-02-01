@@ -23,6 +23,7 @@ Automatically detect video links on web pages and collect them for download.
 - **Copy single URL**: Click **Copy** button next to a video
 - **Copy all URLs**: Click **Copy All** button to copy all URLs (one per line)
 - **Download via Chrome**: Click **DL** button to download through Chrome
+- **IDM PowerShell**: Click **IDM PowerShell** button to copy IDM command-line commands
 
 ### Settings
 
@@ -77,12 +78,37 @@ Scans page DOM for:
 2. Start listener before opening the page with videos
 3. Play the video to trigger network requests
 
-### Using with IDM
+### Using with IDM (Manual)
 
 1. Copy the video URL
 2. Open IDM → **Tasks** → **Add URL** (or press `Ctrl+D`)
 3. Paste the URL
 4. Click **OK** to start download
+
+### Using with IDM PowerShell (Recommended for Bulk)
+
+The **IDM PowerShell** button generates command-line commands for Internet Download Manager that you can paste directly into PowerShell to download all videos at once.
+
+1. Click **IDM PowerShell** button to copy commands to clipboard
+2. Open PowerShell (Win + X → Windows PowerShell)
+3. Paste the commands (Ctrl + V)
+4. Press Enter to start downloading all videos
+
+**Generated command format:**
+```powershell
+& "C:\Program Files (x86)\Internet Download Manager\IDMan.exe" /d "URL" /p "PATH" /f "FILENAME" /n /a
+```
+
+**IDM Command Parameters:**
+| Parameter | Description |
+|-----------|-------------|
+| `/d` | URL to download |
+| `/p` | Local path to save file |
+| `/f` | Filename |
+| `/n` | Silent mode (no dialogs) |
+| `/a` | Add to download queue |
+
+**Note:** Make sure IDM is installed at the default path, or modify the path in the generated commands if your IDM is installed elsewhere.
 
 ### Using with JDownloader
 

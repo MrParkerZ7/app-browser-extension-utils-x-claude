@@ -132,6 +132,78 @@ export function useIDMListener() {
     showStatus('Video list cleared.', 'info');
   }, [showStatus]);
 
+  const copyAllVideoUrls = useCallback(async () => {
+    const urls = state.videosFound.map(v => v.url).join('\n');
+    try {
+      await navigator.clipboard.writeText(urls);
+      showStatus(`Copied ${state.videosFound.length} URLs to clipboard.`, 'info');
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = urls;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showStatus(`Copied ${state.videosFound.length} URLs to clipboard.`, 'info');
+    }
+  }, [state.videosFound, showStatus]);
+
+  const copyIdmPowerShellCommands = useCallback(async () => {
+    const videos = state.videosFound.filter(v => !v.downloaded);
+    if (videos.length === 0) {
+      showStatus('No videos to download.', 'warning');
+      return;
+    }
+
+    // Generate IDM PowerShell commands
+    // IDM command format: IDMan.exe /d "URL" /p "PATH" /f "FILENAME" /n /a
+    // /d - URL to download
+    // /p - local path to save
+    // /f - filename
+    // /n - turn on silent mode
+    // /a - add to download queue
+    const idmPath = 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
+    const downloadPath = config.downloadPath.replace(/\//g, '\\');
+
+    const commands = videos.map((video, index) => {
+      // Extract filename from URL or generate one
+      let filename = `video_${index + 1}`;
+      try {
+        const urlObj = new URL(video.url);
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        const lastPart = pathParts[pathParts.length - 1];
+        if (lastPart && lastPart.includes('.')) {
+          filename = decodeURIComponent(lastPart.split('?')[0]);
+        } else {
+          const ext = video.type.toLowerCase() || 'mp4';
+          filename = `video_${Date.now()}_${index + 1}.${ext}`;
+        }
+      } catch {
+        filename = `video_${Date.now()}_${index + 1}.mp4`;
+      }
+
+      // Escape double quotes in URL
+      const escapedUrl = video.url.replace(/"/g, '`"');
+
+      return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a`;
+    });
+
+    const script = commands.join('\n');
+
+    try {
+      await navigator.clipboard.writeText(script);
+      showStatus(`Copied ${videos.length} IDM commands to clipboard. Paste in PowerShell.`, 'info');
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = script;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showStatus(`Copied ${videos.length} IDM commands to clipboard. Paste in PowerShell.`, 'info');
+    }
+  }, [state.videosFound, config.downloadPath, showStatus]);
+
   return {
     state,
     config,
@@ -142,6 +214,8 @@ export function useIDMListener() {
     downloadVideo,
     downloadAllVideos,
     copyVideoUrl,
+    copyAllVideoUrls,
+    copyIdmPowerShellCommands,
     clearVideos,
     showStatus,
     hideStatus,

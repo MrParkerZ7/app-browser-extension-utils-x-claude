@@ -12,6 +12,8 @@ export function IDMPanel() {
     downloadVideo,
     downloadAllVideos,
     copyVideoUrl,
+    copyAllVideoUrls,
+    copyIdmPowerShellCommands,
     clearVideos,
   } = useIDMListener();
 
@@ -110,6 +112,14 @@ export function IDMPanel() {
                 </button>
               )}
               <button
+                className="btn btn-secondary"
+                onClick={copyAllVideoUrls}
+                disabled={state.videosFound.length === 0}
+                title="Copy all video URLs to clipboard"
+              >
+                Copy All
+              </button>
+              <button
                 className="btn btn-primary"
                 onClick={downloadAllVideos}
                 disabled={undownloadedCount === 0}
@@ -122,6 +132,17 @@ export function IDMPanel() {
                 disabled={state.videosFound.length === 0}
               >
                 Clear
+              </button>
+            </div>
+
+            <div className="fb-reply-actions" style={{ marginTop: '8px' }}>
+              <button
+                className="btn btn-primary"
+                onClick={copyIdmPowerShellCommands}
+                disabled={undownloadedCount === 0}
+                title="Copy IDM PowerShell commands to clipboard"
+              >
+                IDM PowerShell ({undownloadedCount})
               </button>
             </div>
 
