@@ -1269,22 +1269,6 @@ function clearImages(): void {
   broadcastImageState();
 }
 
-// Common image URL patterns to detect
-const imageUrlPatterns = [
-  // Direct image file extensions
-  /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|avif)/i,
-  // Common image CDN patterns
-  /\/image\/|\/images?\//i,
-  /\/photo\/|\/photos?\//i,
-  /\/pic\/|\/pics?\//i,
-  /\/img\//i,
-  // Image CDN hosts
-  /cdn.*image/i,
-  /img\d*\./i,
-  /static.*\.(jpg|jpeg|png|gif|webp)/i,
-  /media.*\.(jpg|jpeg|png|gif|webp)/i,
-];
-
 // Patterns to exclude
 const imageExcludePatterns = [
   /favicon/i,
@@ -1314,21 +1298,25 @@ function isNetworkImageUrl(url: string): boolean {
     }
   }
 
-  // Check against patterns
-  for (const pattern of imageUrlPatterns) {
-    if (pattern.test(lowerUrl)) {
+  // Only check configured extensions - respect user selection
+  const enabledExtensions = imageConfig.imageExtensions || [];
+  if (enabledExtensions.length === 0) {
+    return false;
+  }
+
+  // Check if URL contains any of the enabled extensions
+  for (const ext of enabledExtensions) {
+    if (
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`.${ext}?`) ||
+      lowerUrl.includes(`format=${ext}`) ||
+      lowerUrl.includes(`mime=image/${ext}`)
+    ) {
       return true;
     }
   }
 
-  // Also check configured extensions
-  return imageConfig.imageExtensions.some(
-    ext =>
-      lowerUrl.includes(`.${ext}`) ||
-      lowerUrl.includes(`/${ext}?`) ||
-      lowerUrl.includes(`format=${ext}`) ||
-      lowerUrl.includes(`mime=image/${ext}`)
-  );
+  return false;
 }
 
 function extractTitleFromImageUrl(url: string, tabUrl?: string): string {
