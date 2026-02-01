@@ -16,6 +16,9 @@ import {
   IDMListenerConfig,
   IDMListenerState,
   IDMVideoLink,
+  ImageListenerConfig,
+  ImageListenerState,
+  ImageLink,
 } from '../shared/types';
 import { createLogger } from '../shared/logger';
 import { generateId, getRandomDelay } from '../shared/utils';
@@ -1105,6 +1108,278 @@ function clearIdmVideos(): void {
 }
 
 // ============================================
+// Image Listener Service
+// ============================================
+
+const imageState: ImageListenerState = {
+  running: false,
+  imagesFound: [],
+  totalFound: 0,
+  totalDownloaded: 0,
+};
+
+let imageConfig: ImageListenerConfig = {
+  enabled: false,
+  downloadPath: 'C:\\Downloads\\Images',
+  autoDownload: false,
+  imageExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'avif'],
+  minWidth: 100,
+  minHeight: 100,
+};
+
+function broadcastImageState(): void {
+  chrome.runtime.sendMessage({ type: 'IMAGE_STATE_UPDATE', payload: imageState }).catch(() => {
+    // Ignore errors when popup is closed
+  });
+}
+
+async function loadImageConfig(): Promise<void> {
+  const stored = await chrome.storage.local.get(['imageConfig']);
+  if (stored.imageConfig) {
+    imageConfig = stored.imageConfig;
+  }
+}
+
+async function saveImageConfig(config: ImageListenerConfig): Promise<void> {
+  imageConfig = config;
+  await chrome.storage.local.set({ imageConfig: config });
+}
+
+function addImageLink(image: ImageLink): void {
+  // Check if already exists
+  const exists = imageState.imagesFound.some(i => i.url === image.url);
+  if (!exists) {
+    imageState.imagesFound.push(image);
+    imageState.totalFound++;
+    logger.info('Image Listener: Image found', { url: image.url, title: image.title });
+    broadcastImageState();
+
+    // Auto download if enabled
+    if (imageConfig.autoDownload) {
+      downloadImage(image.url, imageConfig.downloadPath);
+    }
+  }
+}
+
+function getImageExtensionFromUrl(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'avif'];
+  for (const ext of extensions) {
+    if (lowerUrl.includes(`.${ext}`)) {
+      return ext;
+    }
+  }
+  return 'jpg';
+}
+
+function downloadImage(url: string, downloadPath: string): void {
+  logger.info('Image Listener: Starting download', { url, downloadPath });
+
+  // Extract filename from URL
+  let filename = 'image';
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      filename = decodeURIComponent(lastPart.split('?')[0]);
+    } else {
+      // Generate filename from timestamp
+      const ext = getImageExtensionFromUrl(url);
+      filename = `image_${Date.now()}.${ext}`;
+    }
+  } catch {
+    filename = `image_${Date.now()}.jpg`;
+  }
+
+  // Use Chrome's download API
+  chrome.downloads
+    .download({
+      url: url,
+      filename: filename,
+      saveAs: false,
+    })
+    .then(downloadId => {
+      if (downloadId) {
+        logger.info('Image Listener: Download started', { downloadId, filename, url });
+
+        // Mark as downloaded
+        const image = imageState.imagesFound.find(i => i.url === url);
+        if (image) {
+          image.downloaded = true;
+          imageState.totalDownloaded++;
+          broadcastImageState();
+        }
+      } else {
+        logger.error('Image Listener: Download failed - no download ID returned');
+      }
+    })
+    .catch(err => {
+      logger.error('Image Listener: Download failed', { error: String(err), url });
+    });
+}
+
+async function startImageListener(config: ImageListenerConfig): Promise<void> {
+  logger.info('Image Listener: Starting', { config });
+
+  imageConfig = config;
+  await saveImageConfig(config);
+
+  imageState.running = true;
+  broadcastImageState();
+
+  // Inject content script into all existing tabs and start observer
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/index.js'],
+        });
+        // Tell content script to start observing
+        await chrome.tabs.sendMessage(tab.id, { type: 'IMAGE_START_OBSERVER' }).catch(() => {});
+      } catch {
+        // Ignore errors for restricted tabs
+      }
+    }
+  }
+}
+
+async function stopImageListener(): Promise<void> {
+  logger.info('Image Listener: Stopping');
+
+  imageState.running = false;
+  broadcastImageState();
+
+  // Tell all content scripts to stop observing
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'IMAGE_STOP_OBSERVER' }).catch(() => {});
+    }
+  }
+}
+
+function clearImages(): void {
+  imageState.imagesFound = [];
+  imageState.totalFound = 0;
+  imageState.totalDownloaded = 0;
+  broadcastImageState();
+}
+
+// Common image URL patterns to detect
+const imageUrlPatterns = [
+  // Direct image file extensions
+  /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|avif)/i,
+  // Common image CDN patterns
+  /\/image\/|\/images?\//i,
+  /\/photo\/|\/photos?\//i,
+  /\/pic\/|\/pics?\//i,
+  /\/img\//i,
+  // Image CDN hosts
+  /cdn.*image/i,
+  /img\d*\./i,
+  /static.*\.(jpg|jpeg|png|gif|webp)/i,
+  /media.*\.(jpg|jpeg|png|gif|webp)/i,
+];
+
+// Patterns to exclude
+const imageExcludePatterns = [
+  /favicon/i,
+  /icon[-_]?\d*x\d*/i,
+  /sprite/i,
+  /logo[-_]?(small|tiny|mini)/i,
+  /avatar[-_]?(small|tiny|mini|\d{1,2}x)/i,
+  /thumb(nail)?[-_]?(small|tiny|\d{1,2}x)/i,
+  /placeholder/i,
+  /loading/i,
+  /spinner/i,
+  /\.svg.*sprite/i,
+];
+
+function isNetworkImageUrl(url: string): boolean {
+  // Skip blob URLs and data URLs - they can't be downloaded externally
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
+    return false;
+  }
+
+  const lowerUrl = url.toLowerCase();
+
+  // Check exclusion patterns first
+  for (const pattern of imageExcludePatterns) {
+    if (pattern.test(lowerUrl)) {
+      return false;
+    }
+  }
+
+  // Check against patterns
+  for (const pattern of imageUrlPatterns) {
+    if (pattern.test(lowerUrl)) {
+      return true;
+    }
+  }
+
+  // Also check configured extensions
+  return imageConfig.imageExtensions.some(
+    ext =>
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`/${ext}?`) ||
+      lowerUrl.includes(`format=${ext}`) ||
+      lowerUrl.includes(`mime=image/${ext}`)
+  );
+}
+
+function extractTitleFromImageUrl(url: string, tabUrl?: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(p => p);
+
+    // Try to get filename from path
+    const lastPart = pathParts[pathParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      const filename = decodeURIComponent(lastPart.split('?')[0]);
+      const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+      if (nameWithoutExt.length > 3) {
+        return nameWithoutExt;
+      }
+    }
+
+    // Try to identify the source
+    const hostname = urlObj.hostname;
+    if (hostname.includes('facebook') || hostname.includes('fbcdn')) return 'Facebook Image';
+    if (hostname.includes('instagram') || hostname.includes('cdninstagram'))
+      return 'Instagram Image';
+    if (hostname.includes('twitter') || hostname.includes('twimg')) return 'Twitter Image';
+    if (hostname.includes('pinterest')) return 'Pinterest Image';
+    if (hostname.includes('imgur')) return 'Imgur Image';
+    if (hostname.includes('flickr')) return 'Flickr Image';
+    if (hostname.includes('unsplash')) return 'Unsplash Image';
+
+    return tabUrl ? `Image from ${new URL(tabUrl).hostname}` : 'Image';
+  } catch {
+    return 'Image';
+  }
+}
+
+function getImageTypeFromUrl(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'avif'];
+
+  for (const ext of extensions) {
+    if (
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`/${ext}`) ||
+      lowerUrl.includes(`=${ext}`)
+    ) {
+      return ext.toUpperCase();
+    }
+  }
+
+  return 'IMG';
+}
+
+// ============================================
 // Extension lifecycle
 // ============================================
 
@@ -1112,12 +1387,14 @@ chrome.runtime.onInstalled.addListener(async () => {
   logger.info('Extension installed');
   await loadNotifConfig();
   await loadIdmConfig();
+  await loadImageConfig();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   logger.info('Extension started');
   await loadNotifConfig();
   await loadIdmConfig();
+  await loadImageConfig();
 });
 
 // Listen for alarms
@@ -1292,6 +1569,56 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
       sendResponse({ success: true } as MessageResponse);
       break;
 
+    // Image Listener commands
+    case 'IMAGE_START_LISTENER':
+      startImageListener(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IMAGE_STOP_LISTENER':
+      stopImageListener().then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IMAGE_GET_STATE':
+      sendResponse({
+        success: true,
+        data: imageState,
+      } as MessageResponse<ImageListenerState>);
+      break;
+
+    case 'IMAGE_SAVE_CONFIG':
+      saveImageConfig(message.payload).then(() => {
+        sendResponse({ success: true } as MessageResponse);
+      });
+      return true;
+
+    case 'IMAGE_GET_CONFIG':
+      sendResponse({
+        success: true,
+        data: imageConfig,
+      } as MessageResponse<ImageListenerConfig>);
+      break;
+
+    case 'IMAGE_FOUND':
+      if (imageState.running) {
+        addImageLink(message.payload);
+      }
+      sendResponse({ success: true } as MessageResponse);
+      break;
+
+    case 'IMAGE_DOWNLOAD':
+      downloadImage(message.payload.url, message.payload.downloadPath);
+      sendResponse({ success: true } as MessageResponse);
+      break;
+
+    case 'IMAGE_CLEAR':
+      clearImages();
+      sendResponse({ success: true } as MessageResponse);
+      break;
+
     default:
       sendResponse({ success: false, error: 'Unknown message type' } as MessageResponse);
   }
@@ -1313,6 +1640,21 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         })
         .then(() => {
           chrome.tabs.sendMessage(tabId, { type: 'IDM_START_OBSERVER' }).catch(() => {});
+        })
+        .catch(() => {
+          // Ignore errors for restricted tabs
+        });
+    }
+
+    // If Image listener is running, inject content script and start observer
+    if (imageState.running && tab.url && !tab.url.startsWith('chrome://')) {
+      chrome.scripting
+        .executeScript({
+          target: { tabId },
+          files: ['content/index.js'],
+        })
+        .then(() => {
+          chrome.tabs.sendMessage(tabId, { type: 'IMAGE_START_OBSERVER' }).catch(() => {});
         })
         .catch(() => {
           // Ignore errors for restricted tabs
@@ -1473,6 +1815,66 @@ chrome.webRequest.onBeforeRequest.addListener(
           };
 
           addVideoLink(video);
+        });
+    }
+  },
+  { urls: ['<all_urls>'] }
+);
+
+// ============================================
+// WebRequest listener for image URL interception
+// ============================================
+
+// Listen for web requests to intercept image URLs
+chrome.webRequest.onBeforeRequest.addListener(
+  details => {
+    // Only process if Image listener is running
+    if (!imageState.running) return;
+
+    const { url, tabId, type } = details;
+
+    // Skip invalid URLs or extension internal requests
+    if (!url || tabId < 0) return;
+
+    // Only process image type requests or URLs that look like images
+    if (type !== 'image' && !isNetworkImageUrl(url)) return;
+
+    // Check if this is an image URL
+    if (isNetworkImageUrl(url)) {
+      // Check if already recorded
+      const exists = imageState.imagesFound.some(i => i.url === url);
+      if (exists) return;
+
+      // Get tab URL for context
+      chrome.tabs
+        .get(tabId)
+        .then(tab => {
+          const image: ImageLink = {
+            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url,
+            title: extractTitleFromImageUrl(url, tab.url),
+            type: getImageTypeFromUrl(url),
+            timestamp: Date.now(),
+            tabId,
+            tabUrl: tab.url,
+            downloaded: false,
+          };
+
+          addImageLink(image);
+        })
+        .catch(() => {
+          // Tab might no longer exist, still record the image
+          const image: ImageLink = {
+            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            url,
+            title: extractTitleFromImageUrl(url),
+            type: getImageTypeFromUrl(url),
+            timestamp: Date.now(),
+            tabId,
+            downloaded: false,
+          };
+
+          addImageLink(image);
         });
     }
   },

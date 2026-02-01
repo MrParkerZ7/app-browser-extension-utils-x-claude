@@ -175,7 +175,20 @@ export type MessageType =
   | { type: 'IDM_CLEAR_VIDEOS'; payload?: undefined }
   // IDM content script specific messages
   | { type: 'IDM_START_OBSERVER'; payload?: undefined }
-  | { type: 'IDM_STOP_OBSERVER'; payload?: undefined };
+  | { type: 'IDM_STOP_OBSERVER'; payload?: undefined }
+  // Image Listener messages
+  | { type: 'IMAGE_START_LISTENER'; payload: ImageListenerConfig }
+  | { type: 'IMAGE_STOP_LISTENER'; payload?: undefined }
+  | { type: 'IMAGE_GET_STATE'; payload?: undefined }
+  | { type: 'IMAGE_STATE_UPDATE'; payload: ImageListenerState }
+  | { type: 'IMAGE_SAVE_CONFIG'; payload: ImageListenerConfig }
+  | { type: 'IMAGE_GET_CONFIG'; payload?: undefined }
+  | { type: 'IMAGE_FOUND'; payload: ImageLink }
+  | { type: 'IMAGE_DOWNLOAD'; payload: { url: string; downloadPath: string } }
+  | { type: 'IMAGE_CLEAR'; payload?: undefined }
+  // Image content script specific messages
+  | { type: 'IMAGE_START_OBSERVER'; payload?: undefined }
+  | { type: 'IMAGE_STOP_OBSERVER'; payload?: undefined };
 
 export interface MessageResponse<T = unknown> {
   success: boolean;
@@ -212,5 +225,39 @@ export interface IDMListenerState {
 export interface IDMScanResult {
   success: boolean;
   videos: IDMVideoLink[];
+  error?: string;
+}
+
+// Image Listener types
+export interface ImageListenerConfig {
+  enabled: boolean;
+  downloadPath: string;
+  autoDownload: boolean;
+  imageExtensions: string[];
+  minWidth: number;
+  minHeight: number;
+}
+
+export interface ImageLink {
+  id: string;
+  url: string;
+  title: string;
+  type: string;
+  timestamp: number;
+  tabId?: number;
+  tabUrl?: string;
+  downloaded: boolean;
+}
+
+export interface ImageListenerState {
+  running: boolean;
+  imagesFound: ImageLink[];
+  totalFound: number;
+  totalDownloaded: number;
+}
+
+export interface ImageScanResult {
+  success: boolean;
+  images: ImageLink[];
   error?: string;
 }

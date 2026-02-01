@@ -1,0 +1,183 @@
+import { useState } from 'react';
+import { useImageListener } from './useImageListener';
+
+export function ImagePanel() {
+  const {
+    state,
+    config,
+    status,
+    startListener,
+    stopListener,
+    updateConfig,
+    downloadImage,
+    downloadAllImages,
+    copyImageUrl,
+    copyAllImageUrls,
+    clearImages,
+  } = useImageListener();
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateConfig({ downloadPath: e.target.value });
+  };
+
+  const handleAutoDownloadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateConfig({ autoDownload: e.target.checked });
+  };
+
+  const undownloadedCount = state.imagesFound.filter(i => !i.downloaded).length;
+
+  return (
+    <div id="tab-image" className="tab-panel active">
+      <div className="fb-reply-container">
+        <div className="fb-notif-section">
+          <div
+            className={`fb-notif-section-header ${isCollapsed ? 'collapsed' : ''}`}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            <svg
+              className="fb-notif-collapse-icon"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <span>Bulk Image Download</span>
+          </div>
+
+          <div className={`fb-notif-section-content ${isCollapsed ? 'collapsed' : ''}`}>
+            <p className="fb-reply-desc">
+              Automatically detect image links on pages and collect them for download.
+            </p>
+
+            <div className="fb-reply-settings">
+              <label className="fb-reply-label">Download path:</label>
+              <input
+                type="text"
+                className="fb-reply-input idm-path-input"
+                value={config.downloadPath}
+                onChange={handlePathChange}
+                placeholder="C:\Downloads\Images"
+                disabled={state.running}
+              />
+            </div>
+
+            <div className="fb-reply-settings">
+              <label className="fb-action-checkbox">
+                <input
+                  type="checkbox"
+                  checked={config.autoDownload}
+                  onChange={handleAutoDownloadChange}
+                  disabled={state.running}
+                />
+                <span>Auto-download when image found</span>
+              </label>
+            </div>
+
+            {status && (
+              <div className={`fb-reply-status visible ${status.type}`}>{status.message}</div>
+            )}
+
+            <div className="idm-stats">
+              <div className="idm-stat">
+                <span className="idm-stat-label">Images Found:</span>
+                <span className="idm-stat-value">{state.totalFound}</span>
+              </div>
+              <div className="idm-stat">
+                <span className="idm-stat-label">Downloaded:</span>
+                <span className="idm-stat-value">{state.totalDownloaded}</span>
+              </div>
+              <div className="idm-stat">
+                <span className="idm-stat-label">Status:</span>
+                <span className={`idm-stat-value ${state.running ? 'running' : ''}`}>
+                  {state.running ? 'Listening' : 'Stopped'}
+                </span>
+              </div>
+            </div>
+
+            <div className="fb-reply-actions">
+              {!state.running ? (
+                <button className="btn btn-primary" onClick={startListener}>
+                  Start Listener
+                </button>
+              ) : (
+                <button className="btn btn-danger" onClick={stopListener}>
+                  Stop Listener
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                onClick={copyAllImageUrls}
+                disabled={state.imagesFound.length === 0}
+              >
+                Copy All
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={downloadAllImages}
+                disabled={undownloadedCount === 0}
+              >
+                Download All ({undownloadedCount})
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={clearImages}
+                disabled={state.imagesFound.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+
+            {state.imagesFound.length > 0 && (
+              <div className="idm-video-list">
+                <div className="idm-video-list-header">
+                  <span>Found Images ({state.imagesFound.length})</span>
+                </div>
+                <div className="idm-video-items">
+                  {state.imagesFound.map(image => (
+                    <div
+                      key={image.id}
+                      className={`idm-video-item ${image.downloaded ? 'downloaded' : ''}`}
+                    >
+                      <div className="idm-video-info">
+                        <span className="idm-video-type">{image.type}</span>
+                        <span className="idm-video-title" title={image.title}>
+                          {image.title}
+                        </span>
+                        <span className="idm-video-url" title={image.url}>
+                          {image.url.length > 60 ? image.url.substring(0, 60) + '...' : image.url}
+                        </span>
+                      </div>
+                      <div className="idm-video-actions">
+                        <button
+                          className="btn btn-small btn-secondary"
+                          onClick={() => copyImageUrl(image)}
+                          title="Copy URL"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          className="btn btn-small btn-primary"
+                          onClick={() => downloadImage(image)}
+                          disabled={image.downloaded}
+                          title={image.downloaded ? 'Already downloaded' : 'Download via Chrome'}
+                        >
+                          {image.downloaded ? '\u2713' : 'DL'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

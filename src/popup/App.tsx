@@ -5,11 +5,12 @@ import { LoggingPanel } from './features/logging/LoggingPanel';
 import { CSSCounterPanel } from './features/css-counter/CSSCounterPanel';
 import { FBReplyPanel } from './features/fb-reply/FBReplyPanel';
 import { IDMPanel } from './features/idm-listener/IDMPanel';
+import { ImagePanel } from './features/image-listener/ImagePanel';
 import { createLogger } from '../shared/logger';
 
 const logger = createLogger('popup');
 
-export type TabId = 'tab-logging' | 'tab-css-counter' | 'tab-fb-reply' | 'tab-idm';
+export type TabId = 'tab-logging' | 'tab-css-counter' | 'tab-fb-reply' | 'tab-idm' | 'tab-image';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabId>('tab-logging');
@@ -48,6 +49,7 @@ export function App() {
         {activeTab === 'tab-css-counter' && <CSSCounterPanel />}
         {activeTab === 'tab-fb-reply' && <FBReplyPanel />}
         {activeTab === 'tab-idm' && <IDMPanel />}
+        {activeTab === 'tab-image' && <ImagePanel />}
       </div>
     </>
   );
