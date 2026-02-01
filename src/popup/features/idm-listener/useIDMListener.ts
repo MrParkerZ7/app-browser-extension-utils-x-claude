@@ -149,8 +149,8 @@ export function useIDMListener() {
   }, [state.videosFound, showStatus]);
 
   const copyIdmPowerShellCommands = useCallback(async () => {
-    // Image file extensions to EXCLUDE
-    const imageExtensions = [
+    // File extensions to EXCLUDE (images and generic types)
+    const excludeExtensions = [
       'avif',
       'jpg',
       'jpeg',
@@ -163,6 +163,7 @@ export function useIDMListener() {
       'tiff',
       'heic',
       'heif',
+      'video', // generic type, often unreliable
     ];
 
     // Filter only video files (exclude images)
@@ -172,11 +173,11 @@ export function useIDMListener() {
       const lowerType = v.type.toLowerCase();
       const lowerUrl = v.url.toLowerCase();
 
-      // Exclude if type is an image extension
-      if (imageExtensions.includes(lowerType)) return false;
+      // Exclude if type is in exclude list
+      if (excludeExtensions.includes(lowerType)) return false;
 
-      // Exclude if URL contains image extension
-      for (const ext of imageExtensions) {
+      // Exclude if URL contains excluded extension
+      for (const ext of excludeExtensions) {
         if (lowerUrl.includes(`.${ext}?`) || lowerUrl.includes(`.${ext}`)) {
           return false;
         }
