@@ -7,6 +7,7 @@ const DEFAULT_CONFIG: IDMListenerConfig = {
   downloadPath: 'C:\\Downloads\\Videos',
   autoDownload: false,
   videoExtensions: ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts'],
+  idmPath: 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe',
 };
 
 export function useIDMListener() {
@@ -199,7 +200,7 @@ export function useIDMListener() {
     // /r - referer URL
     // /n - turn on silent mode
     // /a - add to download queue
-    const idmPath = 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
+    const idmPath = config.idmPath || 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
     const downloadPath = config.downloadPath.replace(/\//g, '\\');
 
     const commands = videos.map((video, index) => {

@@ -202,6 +202,7 @@ export interface IDMListenerConfig {
   downloadPath: string;
   autoDownload: boolean;
   videoExtensions: string[];
+  idmPath: string;
 }
 
 export interface IDMVideoLink {

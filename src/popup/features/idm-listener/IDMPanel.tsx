@@ -27,6 +27,10 @@ export function IDMPanel() {
     updateConfig({ autoDownload: e.target.checked });
   };
 
+  const handleIdmPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateConfig({ idmPath: e.target.value });
+  };
+
   const undownloadedCount = state.videosFound.filter(v => !v.downloaded).length;
 
   return (
@@ -55,6 +59,18 @@ export function IDMPanel() {
             <p className="fb-reply-desc">
               Automatically detect video links on pages and send them to IDM for download.
             </p>
+
+            <div className="fb-reply-settings">
+              <label className="fb-reply-label">IDM path:</label>
+              <input
+                type="text"
+                className="fb-reply-input idm-path-input"
+                value={config.idmPath || ''}
+                onChange={handleIdmPathChange}
+                placeholder="C:\Program Files (x86)\Internet Download Manager\IDMan.exe"
+                disabled={state.running}
+              />
+            </div>
 
             <div className="fb-reply-settings">
               <label className="fb-reply-label">Download path:</label>

@@ -964,6 +964,7 @@ let idmConfig: IDMListenerConfig = {
   downloadPath: 'C:\\Downloads\\Videos',
   autoDownload: false,
   videoExtensions: ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts'],
+  idmPath: 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe',
 };
 
 function broadcastIdmState(): void {
