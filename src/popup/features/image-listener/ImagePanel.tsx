@@ -26,6 +26,16 @@ export function ImagePanel() {
     updateConfig({ autoDownload: e.target.checked });
   };
 
+  const handleMinWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10) || 0;
+    updateConfig({ minWidth: value });
+  };
+
+  const handleMinHeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10) || 0;
+    updateConfig({ minHeight: value });
+  };
+
   const undownloadedCount = state.imagesFound.filter(i => !i.downloaded).length;
 
   return (
@@ -65,6 +75,35 @@ export function ImagePanel() {
                 placeholder="C:\Downloads\Images"
                 disabled={state.running}
               />
+            </div>
+
+            <div className="fb-reply-settings" style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <label className="fb-reply-label">Min width (px):</label>
+                <input
+                  type="number"
+                  className="fb-reply-input"
+                  value={config.minWidth || 0}
+                  onChange={handleMinWidthChange}
+                  placeholder="100"
+                  min="0"
+                  disabled={state.running}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="fb-reply-label">Min height (px):</label>
+                <input
+                  type="number"
+                  className="fb-reply-input"
+                  value={config.minHeight || 0}
+                  onChange={handleMinHeightChange}
+                  placeholder="100"
+                  min="0"
+                  disabled={state.running}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
 
             <div className="fb-reply-settings">
