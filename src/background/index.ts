@@ -976,7 +976,14 @@ function broadcastIdmState(): void {
 async function loadIdmConfig(): Promise<void> {
   const stored = await chrome.storage.local.get(['idmConfig']);
   if (stored.idmConfig) {
-    idmConfig = stored.idmConfig;
+    // Merge with defaults to ensure videoExtensions is never empty/undefined
+    idmConfig = {
+      ...idmConfig,
+      ...stored.idmConfig,
+      videoExtensions: stored.idmConfig.videoExtensions?.length
+        ? stored.idmConfig.videoExtensions
+        : idmConfig.videoExtensions,
+    };
   }
 }
 
@@ -1137,7 +1144,14 @@ function broadcastImageState(): void {
 async function loadImageConfig(): Promise<void> {
   const stored = await chrome.storage.local.get(['imageConfig']);
   if (stored.imageConfig) {
-    imageConfig = stored.imageConfig;
+    // Merge with defaults to ensure imageExtensions is never empty/undefined
+    imageConfig = {
+      ...imageConfig,
+      ...stored.imageConfig,
+      imageExtensions: stored.imageConfig.imageExtensions?.length
+        ? stored.imageConfig.imageExtensions
+        : imageConfig.imageExtensions,
+    };
   }
 }
 
