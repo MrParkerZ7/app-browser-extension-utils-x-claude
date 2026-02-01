@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useIDMListener } from './useIDMListener';
 
+const DEFAULT_EXTENSIONS = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'm3u8', 'ts'];
+
 export function IDMPanel() {
   const {
     state,
@@ -18,6 +20,7 @@ export function IDMPanel() {
   } = useIDMListener();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [newExtension, setNewExtension] = useState('');
 
   const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateConfig({ downloadPath: e.target.value });
@@ -29,6 +32,27 @@ export function IDMPanel() {
 
   const handleIdmPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateConfig({ idmPath: e.target.value });
+  };
+
+  const handleExtensionToggle = (ext: string) => {
+    const current = config.videoExtensions || [];
+    if (current.includes(ext)) {
+      updateConfig({ videoExtensions: current.filter(e => e !== ext) });
+    } else {
+      updateConfig({ videoExtensions: [...current, ext] });
+    }
+  };
+
+  const handleAddExtension = () => {
+    const ext = newExtension.trim().toLowerCase().replace(/^\./, '');
+    if (ext && !(config.videoExtensions || []).includes(ext)) {
+      updateConfig({ videoExtensions: [...(config.videoExtensions || []), ext] });
+      setNewExtension('');
+    }
+  };
+
+  const handleRemoveExtension = (ext: string) => {
+    updateConfig({ videoExtensions: (config.videoExtensions || []).filter(e => e !== ext) });
   };
 
   const undownloadedCount = state.videosFound.filter(v => !v.downloaded).length;
@@ -82,6 +106,82 @@ export function IDMPanel() {
                 placeholder="C:\Downloads\Videos"
                 disabled={state.running}
               />
+            </div>
+
+            <div className="fb-reply-settings">
+              <label className="fb-reply-label">Video extensions:</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                {/* All extensions (default + custom) inline */}
+                {[...new Set([...DEFAULT_EXTENSIONS, ...(config.videoExtensions || [])])].map(ext => {
+                  const isCustom = !DEFAULT_EXTENSIONS.includes(ext);
+                  const isEnabled = (config.videoExtensions || []).includes(ext);
+                  return (
+                    <label
+                      key={ext}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '2px 8px',
+                        backgroundColor: isEnabled ? (isCustom ? '#2b6cb0' : '#4a5568') : '#2d3748',
+                        borderRadius: '4px',
+                        cursor: state.running ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={() => handleExtensionToggle(ext)}
+                        disabled={state.running}
+                        style={{ margin: 0 }}
+                      />
+                      <span>.{ext}</span>
+                      {isCustom && (
+                        <button
+                          onClick={e => {
+                            e.preventDefault();
+                            handleRemoveExtension(ext);
+                          }}
+                          disabled={state.running}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#fff',
+                            cursor: state.running ? 'not-allowed' : 'pointer',
+                            padding: '0 2px',
+                            fontSize: '12px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          x
+                        </button>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Add custom extension */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <input
+                  type="text"
+                  className="fb-reply-input"
+                  value={newExtension}
+                  onChange={e => setNewExtension(e.target.value)}
+                  placeholder="Add extension (e.g., mpd)"
+                  disabled={state.running}
+                  style={{ flex: 1 }}
+                  onKeyDown={e => e.key === 'Enter' && handleAddExtension()}
+                />
+                <button
+                  className="btn btn-secondary btn-small"
+                  onClick={handleAddExtension}
+                  disabled={state.running || !newExtension.trim()}
+                >
+                  Add
+                </button>
+              </div>
             </div>
 
             <div className="fb-reply-settings">

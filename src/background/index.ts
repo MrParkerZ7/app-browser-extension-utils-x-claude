@@ -1656,29 +1656,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // WebRequest listener for video URL interception
 // ============================================
 
-// Common video URL patterns to detect
-const videoUrlPatterns = [
-  // Direct video file extensions
-  /\.(mp4|webm|mkv|avi|mov|flv|m4v|3gp)/i,
-  // Streaming formats
-  /\.(m3u8|mpd|ts)/i,
-  // Common video CDN patterns
-  /\/video\/|\/videos?\//i,
-  /playback|stream|media/i,
-  // TikTok specific
-  /tiktokcdn.*video/i,
-  /v\d+\.tiktokcdn/i,
-  /muscdn.*video/i,
-  // YouTube (for reference, though blocked by CSP usually)
-  /googlevideo\.com.*videoplayback/i,
-  // Facebook/Instagram
-  /fbcdn.*video/i,
-  /cdninstagram.*video/i,
-  // Twitter/X
-  /video\.twimg/i,
-  // Generic video indicators
-  /mime.*video/i,
-  /content-type.*video/i,
+// Patterns to exclude from video detection
+const videoExcludePatterns = [
+  /\/ads?\//i,
+  /\/tracking/i,
+  /\/analytics/i,
+  /\/pixel/i,
+  /beacon/i,
 ];
 
 function isNetworkVideoUrl(url: string): boolean {
@@ -1689,21 +1673,32 @@ function isNetworkVideoUrl(url: string): boolean {
 
   const lowerUrl = url.toLowerCase();
 
-  // Check against patterns
-  for (const pattern of videoUrlPatterns) {
+  // Check exclusion patterns first
+  for (const pattern of videoExcludePatterns) {
     if (pattern.test(lowerUrl)) {
+      return false;
+    }
+  }
+
+  // Only check configured extensions - respect user selection
+  const enabledExtensions = idmConfig.videoExtensions || [];
+  if (enabledExtensions.length === 0) {
+    return false;
+  }
+
+  // Check if URL contains any of the enabled extensions
+  for (const ext of enabledExtensions) {
+    if (
+      lowerUrl.includes(`.${ext}`) ||
+      lowerUrl.includes(`.${ext}?`) ||
+      lowerUrl.includes(`format=${ext}`) ||
+      lowerUrl.includes(`mime=video/${ext}`)
+    ) {
       return true;
     }
   }
 
-  // Also check configured extensions
-  return idmConfig.videoExtensions.some(
-    ext =>
-      lowerUrl.includes(`.${ext}`) ||
-      lowerUrl.includes(`/${ext}?`) ||
-      lowerUrl.includes(`format=${ext}`) ||
-      lowerUrl.includes(`mime=video/${ext}`)
-  );
+  return false;
 }
 
 function extractTitleFromUrl(url: string, tabUrl?: string): string {
