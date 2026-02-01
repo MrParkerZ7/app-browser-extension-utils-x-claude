@@ -220,16 +220,19 @@ export function useIDMListener() {
         filename = `video_${Date.now()}_${index + 1}.mp4`;
       }
 
-      // Escape single quotes by doubling them for PowerShell
-      const escapedUrl = video.url.replace(/'/g, "''");
-      const referer = video.tabUrl ? video.tabUrl.replace(/'/g, "''") : '';
+      // Clean filename - remove invalid characters
+      filename = filename.replace(/[<>:"/\\|?*]/g, '_');
 
-      // Use Start-Process for more reliable execution
+      // Escape double quotes for PowerShell by doubling them
+      const escapedUrl = video.url.replace(/"/g, '`"');
+      const referer = video.tabUrl ? video.tabUrl.replace(/"/g, '`"') : '';
+
+      // Use & operator with double quotes - more reliable for URLs with special chars
       // Include referer if available
       if (referer) {
-        return `Start-Process '${idmPath}' -ArgumentList '/d','${escapedUrl}','/p','${downloadPath}','/f','${filename}','/r','${referer}','/n','/a'`;
+        return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a`;
       }
-      return `Start-Process '${idmPath}' -ArgumentList '/d','${escapedUrl}','/p','${downloadPath}','/f','${filename}','/n','/a'`;
+      return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a`;
     });
 
     const script = commands.join('\n');
@@ -246,7 +249,7 @@ export function useIDMListener() {
       document.body.removeChild(textArea);
       showStatus(`Copied ${videos.length} IDM commands to clipboard. Paste in PowerShell.`, 'info');
     }
-  }, [state.videosFound, config.downloadPath, showStatus]);
+  }, [state.videosFound, config.downloadPath, config.idmPath, showStatus]);
 
   return {
     state,
