@@ -1305,13 +1305,14 @@ function isNetworkImageUrl(url: string): boolean {
   }
 
   // Check if URL contains any of the enabled extensions
+  // Use regex for precise matching to avoid partial matches
   for (const ext of enabledExtensions) {
-    if (
-      lowerUrl.includes(`.${ext}`) ||
-      lowerUrl.includes(`.${ext}?`) ||
-      lowerUrl.includes(`format=${ext}`) ||
-      lowerUrl.includes(`mime=image/${ext}`)
-    ) {
+    const extPattern = new RegExp(`\\.${ext}(?:[?#/:]|$)`, 'i');
+    if (extPattern.test(lowerUrl)) {
+      return true;
+    }
+    // Also check format parameter
+    if (lowerUrl.includes(`format=${ext}`) || lowerUrl.includes(`mime=image/${ext}`)) {
       return true;
     }
   }
@@ -1687,13 +1688,14 @@ function isNetworkVideoUrl(url: string): boolean {
   }
 
   // Check if URL contains any of the enabled extensions
+  // Use regex for precise matching to avoid .avi matching .avif
   for (const ext of enabledExtensions) {
-    if (
-      lowerUrl.includes(`.${ext}`) ||
-      lowerUrl.includes(`.${ext}?`) ||
-      lowerUrl.includes(`format=${ext}`) ||
-      lowerUrl.includes(`mime=video/${ext}`)
-    ) {
+    const extPattern = new RegExp(`\\.${ext}(?:[?#/]|$)`, 'i');
+    if (extPattern.test(lowerUrl)) {
+      return true;
+    }
+    // Also check format parameter
+    if (lowerUrl.includes(`format=${ext}`) || lowerUrl.includes(`mime=video/${ext}`)) {
       return true;
     }
   }
