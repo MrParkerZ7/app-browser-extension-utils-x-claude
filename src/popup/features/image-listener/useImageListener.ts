@@ -29,7 +29,15 @@ export function useImageListener() {
   useEffect(() => {
     sendMessage({ type: 'IMAGE_GET_CONFIG' }).then(response => {
       if (response?.success && response.data) {
-        setConfig(response.data as ImageListenerConfig);
+        const loadedConfig = response.data as ImageListenerConfig;
+        // Merge with defaults to ensure imageExtensions is never empty
+        setConfig({
+          ...DEFAULT_CONFIG,
+          ...loadedConfig,
+          imageExtensions: loadedConfig.imageExtensions?.length
+            ? loadedConfig.imageExtensions
+            : DEFAULT_CONFIG.imageExtensions,
+        });
       }
     });
 

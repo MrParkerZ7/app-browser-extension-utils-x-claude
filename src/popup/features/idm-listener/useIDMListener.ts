@@ -28,7 +28,15 @@ export function useIDMListener() {
   useEffect(() => {
     sendMessage({ type: 'IDM_GET_CONFIG' }).then(response => {
       if (response?.success && response.data) {
-        setConfig(response.data as IDMListenerConfig);
+        const loadedConfig = response.data as IDMListenerConfig;
+        // Merge with defaults to ensure videoExtensions is never empty
+        setConfig({
+          ...DEFAULT_CONFIG,
+          ...loadedConfig,
+          videoExtensions: loadedConfig.videoExtensions?.length
+            ? loadedConfig.videoExtensions
+            : DEFAULT_CONFIG.videoExtensions,
+        });
       }
     });
 
