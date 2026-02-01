@@ -150,56 +150,16 @@ export function useIDMListener() {
   }, [state.videosFound, showStatus]);
 
   const copyIdmPowerShellCommands = useCallback(async () => {
-    // File extensions to EXCLUDE (images only)
-    const excludeExtensions = [
-      'avif',
-      'jpg',
-      'jpeg',
-      'png',
-      'gif',
-      'webp',
-      'svg',
-      'bmp',
-      'ico',
-      'tiff',
-      'heic',
-      'heif',
-    ];
-
-    // Filter only video files (exclude images)
-    const videos = state.videosFound.filter(v => {
-      if (v.downloaded) return false;
-
-      const lowerType = v.type.toLowerCase();
-      const lowerUrl = v.url.toLowerCase();
-
-      // Exclude if type is in exclude list
-      if (excludeExtensions.includes(lowerType)) return false;
-
-      // Exclude if URL contains excluded extension
-      for (const ext of excludeExtensions) {
-        if (lowerUrl.includes(`.${ext}?`) || lowerUrl.includes(`.${ext}`)) {
-          return false;
-        }
-      }
-
-      // Include everything else (videos)
-      return true;
-    });
+    // Only use videos that haven't been downloaded
+    const videos = state.videosFound.filter(v => !v.downloaded);
 
     if (videos.length === 0) {
       showStatus('No video files to download.', 'warning');
       return;
     }
 
-    // Generate IDM PowerShell commands using Start-Process
+    // Generate batch/cmd commands (more reliable than PowerShell for IDM)
     // IDM command format: IDMan.exe /d "URL" /p "PATH" /f "FILENAME" /r "REFERER" /n /a
-    // /d - URL to download
-    // /p - local path to save
-    // /f - filename
-    // /r - referer URL
-    // /n - turn on silent mode
-    // /a - add to download queue
     const idmPath = config.idmPath || 'C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe';
     const downloadPath = config.downloadPath.replace(/\//g, '\\');
 
@@ -223,23 +183,20 @@ export function useIDMListener() {
       // Clean filename - remove invalid characters
       filename = filename.replace(/[<>:"/\\|?*]/g, '_');
 
-      // For PowerShell, we use Start-Process with arguments as a single string
-      // Escape double quotes by doubling them
-      const escapedUrl = video.url.replace(/"/g, '""');
-      const referer = video.tabUrl ? video.tabUrl.replace(/"/g, '""') : '';
+      const referer = video.tabUrl || '';
 
-      // Use Start-Process with -ArgumentList as single string
+      // Use simple batch format - works in cmd.exe
       if (referer) {
-        return `Start-Process -FilePath "${idmPath}" -ArgumentList '/d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a'`;
+        return `"${idmPath}" /d "${video.url}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a`;
       }
-      return `Start-Process -FilePath "${idmPath}" -ArgumentList '/d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a'`;
+      return `"${idmPath}" /d "${video.url}" /p "${downloadPath}" /f "${filename}" /n /a`;
     });
 
     const script = commands.join('\n');
 
     try {
       await navigator.clipboard.writeText(script);
-      showStatus(`Copied ${videos.length} IDM commands to clipboard. Paste in PowerShell.`, 'info');
+      showStatus(`Copied ${videos.length} IDM commands. Paste in CMD (not PowerShell).`, 'info');
     } catch {
       const textArea = document.createElement('textarea');
       textArea.value = script;
@@ -247,7 +204,7 @@ export function useIDMListener() {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      showStatus(`Copied ${videos.length} IDM commands to clipboard. Paste in PowerShell.`, 'info');
+      showStatus(`Copied ${videos.length} IDM commands. Paste in CMD (not PowerShell).`, 'info');
     }
   }, [state.videosFound, config.downloadPath, config.idmPath, showStatus]);
 

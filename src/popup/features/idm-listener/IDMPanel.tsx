@@ -256,9 +256,9 @@ export function IDMPanel() {
                 className="btn btn-primary"
                 onClick={copyIdmPowerShellCommands}
                 disabled={undownloadedCount === 0}
-                title="Copy IDM PowerShell commands to clipboard"
+                title="Copy IDM commands to clipboard (paste in CMD)"
               >
-                IDM PowerShell ({undownloadedCount})
+                IDM CMD ({undownloadedCount})
               </button>
             </div>
 
