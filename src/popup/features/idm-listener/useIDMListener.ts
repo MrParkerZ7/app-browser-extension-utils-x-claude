@@ -223,16 +223,16 @@ export function useIDMListener() {
       // Clean filename - remove invalid characters
       filename = filename.replace(/[<>:"/\\|?*]/g, '_');
 
-      // Escape double quotes for PowerShell by doubling them
-      const escapedUrl = video.url.replace(/"/g, '`"');
-      const referer = video.tabUrl ? video.tabUrl.replace(/"/g, '`"') : '';
+      // For PowerShell, we use Start-Process with arguments as a single string
+      // Escape double quotes by doubling them
+      const escapedUrl = video.url.replace(/"/g, '""');
+      const referer = video.tabUrl ? video.tabUrl.replace(/"/g, '""') : '';
 
-      // Use & operator with double quotes - more reliable for URLs with special chars
-      // Include referer if available
+      // Use Start-Process with -ArgumentList as single string
       if (referer) {
-        return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a`;
+        return `Start-Process -FilePath "${idmPath}" -ArgumentList '/d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /r "${referer}" /n /a'`;
       }
-      return `& "${idmPath}" /d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a`;
+      return `Start-Process -FilePath "${idmPath}" -ArgumentList '/d "${escapedUrl}" /p "${downloadPath}" /f "${filename}" /n /a'`;
     });
 
     const script = commands.join('\n');
