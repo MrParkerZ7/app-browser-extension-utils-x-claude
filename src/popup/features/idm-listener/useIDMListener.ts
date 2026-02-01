@@ -149,42 +149,41 @@ export function useIDMListener() {
   }, [state.videosFound, showStatus]);
 
   const copyIdmPowerShellCommands = useCallback(async () => {
-    // Video file extensions to include
-    const videoExtensions = [
-      'mp4',
-      'webm',
-      'mkv',
-      'avi',
-      'mov',
-      'flv',
-      'm3u8',
-      'ts',
-      'mpd',
-      'm4v',
-      '3gp',
-      'hls',
-      'dash',
+    // Image file extensions to EXCLUDE
+    const imageExtensions = [
+      'avif',
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'svg',
+      'bmp',
+      'ico',
+      'tiff',
+      'heic',
+      'heif',
     ];
 
-    // Filter only video files (exclude images like avif, jpg, png, etc.)
+    // Filter only video files (exclude images)
     const videos = state.videosFound.filter(v => {
       if (v.downloaded) return false;
 
       const lowerType = v.type.toLowerCase();
       const lowerUrl = v.url.toLowerCase();
 
-      // Check if type matches video extensions
-      if (videoExtensions.includes(lowerType)) return true;
-      if (lowerType === 'video') return true;
+      // Exclude if type is an image extension
+      if (imageExtensions.includes(lowerType)) return false;
 
-      // Check URL for video extensions
-      for (const ext of videoExtensions) {
-        if (lowerUrl.includes(`.${ext}`) || lowerUrl.includes(`mime_type=video`)) {
-          return true;
+      // Exclude if URL contains image extension
+      for (const ext of imageExtensions) {
+        if (lowerUrl.includes(`.${ext}?`) || lowerUrl.includes(`.${ext}`)) {
+          return false;
         }
       }
 
-      return false;
+      // Include everything else (videos)
+      return true;
     });
 
     if (videos.length === 0) {
