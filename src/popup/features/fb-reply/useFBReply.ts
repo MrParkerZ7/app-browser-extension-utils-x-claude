@@ -15,6 +15,7 @@ export interface FBReplyActions {
   steps: FBReplySteps;
   templates: FBReplyTemplate[];
   activeTemplateIndex: number;
+  selectedTemplateIndices: number[];
   doClose: boolean;
   delayMin: number;
   delayMax: number;
@@ -24,6 +25,7 @@ const DEFAULT_ACTIONS: FBReplyActions = {
   steps: { clickReply: true, inputText: true, uploadImages: false, submitReply: true },
   templates: [{ message: 'hello world', imageUrls: [] }],
   activeTemplateIndex: 0,
+  selectedTemplateIndices: [0],
   doClose: true,
   delayMin: 1500,
   delayMax: 3000,
@@ -86,6 +88,7 @@ export function useFBReply() {
       .get([
         'fbTemplates',
         'fbActiveTemplateIndex',
+        'fbSelectedTemplateIndices',
         'fbReplyDelayMin',
         'fbReplyDelayMax',
         'fbStepClickReply',
@@ -109,6 +112,15 @@ export function useFBReply() {
           stored.fbActiveTemplateIndex < newActions.templates.length
         ) {
           newActions.activeTemplateIndex = stored.fbActiveTemplateIndex;
+        }
+        if (stored.fbSelectedTemplateIndices && Array.isArray(stored.fbSelectedTemplateIndices)) {
+          // Filter to only include valid indices
+          newActions.selectedTemplateIndices = stored.fbSelectedTemplateIndices.filter(
+            (i: number) => i >= 0 && i < newActions.templates.length
+          );
+        } else {
+          // Default: select all templates
+          newActions.selectedTemplateIndices = newActions.templates.map((_, i) => i);
         }
         if (stored.fbReplyDelayMin) newActions.delayMin = parseInt(stored.fbReplyDelayMin, 10);
         if (stored.fbReplyDelayMax) newActions.delayMax = parseInt(stored.fbReplyDelayMax, 10);
@@ -180,7 +192,7 @@ export function useFBReply() {
   }, [hideStatus, showStatus]);
 
   const startAutoReply = useCallback(async () => {
-    const { steps, templates, doClose, delayMin, delayMax } = actions;
+    const { steps, templates, selectedTemplateIndices, doClose, delayMin, delayMax } = actions;
 
     const hasAnyStep =
       steps.clickReply || steps.inputText || steps.uploadImages || steps.submitReply;
@@ -195,8 +207,16 @@ export function useFBReply() {
       return;
     }
 
+    // Filter to only selected templates
+    const selectedTemplates = templates.filter((_, i) => selectedTemplateIndices.includes(i));
+
     if (steps.inputText || steps.uploadImages) {
-      const validTemplates = templates.filter(t => {
+      if (selectedTemplates.length === 0) {
+        showStatus('Please select at least one template.', 'error');
+        return;
+      }
+
+      const validTemplates = selectedTemplates.filter(t => {
         const hasMessage = !steps.inputText || t.message.trim() !== '';
         const hasImages = !steps.uploadImages || t.imageUrls.some(url => url.trim() !== '');
         return hasMessage && hasImages;
@@ -215,7 +235,7 @@ export function useFBReply() {
     }
 
     const config: FBAutoReplyConfig = {
-      templates,
+      templates: selectedTemplates,
       delayMin,
       delayMax,
       steps,
@@ -275,24 +295,63 @@ export function useFBReply() {
   }, []);
 
   const updateTemplates = useCallback(
-    (templates: FBReplyTemplate[], activeTemplateIndex?: number) => {
+    (templates: FBReplyTemplate[], activeTemplateIndex?: number, selectedIndices?: number[]) => {
       const newIndex = activeTemplateIndex ?? actions.activeTemplateIndex;
+      const newSelectedIndices =
+        selectedIndices ??
+        // When adding new template, auto-select it; when removing, filter out invalid indices
+        actions.selectedTemplateIndices.filter(i => i < templates.length);
+
+      // If a new template was added (templates grew), auto-select the new one
+      const finalSelectedIndices =
+        templates.length > actions.templates.length
+          ? [...newSelectedIndices, templates.length - 1]
+          : newSelectedIndices;
+
       setActions(prev => ({
         ...prev,
         templates,
         activeTemplateIndex: Math.min(newIndex, templates.length - 1),
+        selectedTemplateIndices: finalSelectedIndices,
       }));
       chrome.storage.local.set({
         fbTemplates: templates,
         fbActiveTemplateIndex: Math.min(newIndex, templates.length - 1),
+        fbSelectedTemplateIndices: finalSelectedIndices,
       });
     },
-    [actions.activeTemplateIndex]
+    [actions.activeTemplateIndex, actions.selectedTemplateIndices, actions.templates.length]
   );
 
   const setActiveTemplateIndex = useCallback((index: number) => {
     setActions(prev => ({ ...prev, activeTemplateIndex: index }));
     chrome.storage.local.set({ fbActiveTemplateIndex: index });
+  }, []);
+
+  const toggleTemplateSelection = useCallback((index: number) => {
+    setActions(prev => {
+      const isSelected = prev.selectedTemplateIndices.includes(index);
+      const newIndices = isSelected
+        ? prev.selectedTemplateIndices.filter(i => i !== index)
+        : [...prev.selectedTemplateIndices, index].sort((a, b) => a - b);
+      chrome.storage.local.set({ fbSelectedTemplateIndices: newIndices });
+      return { ...prev, selectedTemplateIndices: newIndices };
+    });
+  }, []);
+
+  const selectAllTemplates = useCallback(() => {
+    setActions(prev => {
+      const allIndices = prev.templates.map((_, i) => i);
+      chrome.storage.local.set({ fbSelectedTemplateIndices: allIndices });
+      return { ...prev, selectedTemplateIndices: allIndices };
+    });
+  }, []);
+
+  const deselectAllTemplates = useCallback(() => {
+    setActions(prev => {
+      chrome.storage.local.set({ fbSelectedTemplateIndices: [] });
+      return { ...prev, selectedTemplateIndices: [] };
+    });
   }, []);
 
   // Helper for button label
@@ -369,6 +428,9 @@ export function useFBReply() {
     updateDelays,
     updateTemplates,
     setActiveTemplateIndex,
+    toggleTemplateSelection,
+    selectAllTemplates,
+    deselectAllTemplates,
     getActionLabel,
     toggleCollapsed,
     showStatus,

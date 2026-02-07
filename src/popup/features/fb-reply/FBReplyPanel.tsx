@@ -29,6 +29,9 @@ export function FBReplyPanel() {
     updateDelays,
     updateTemplates,
     setActiveTemplateIndex,
+    toggleTemplateSelection,
+    selectAllTemplates,
+    deselectAllTemplates,
     getActionLabel,
     toggleCollapsed,
     loadBookmarkFolders,
@@ -98,9 +101,13 @@ export function FBReplyPanel() {
             <TemplateManager
               templates={actions.templates}
               activeIndex={actions.activeTemplateIndex}
+              selectedIndices={actions.selectedTemplateIndices}
               steps={actions.steps}
               onTemplatesChange={updateTemplates}
               onActiveIndexChange={setActiveTemplateIndex}
+              onToggleSelection={toggleTemplateSelection}
+              onSelectAll={selectAllTemplates}
+              onDeselectAll={deselectAllTemplates}
             />
 
             <TemplateModeSelector

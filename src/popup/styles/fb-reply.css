@@ -123,6 +123,19 @@
   user-select: none;
 }
 
+/* Template header with select actions */
+.fb-template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.fb-template-select-actions {
+  display: flex;
+  gap: 4px;
+}
+
 /* Template tabs */
 .fb-template-tabs {
   display: flex;
@@ -142,8 +155,10 @@
 .fb-template-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 6px 5px 10px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  min-width: 90px;
   background: #0d1b2a;
   border: 1px solid #0f3460;
   border-radius: 4px;
@@ -162,10 +177,34 @@
   border-color: #64ffda;
 }
 
+.fb-template-tab.unselected {
+  opacity: 0.5;
+}
+
+.fb-template-tab.unselected:hover {
+  opacity: 0.7;
+}
+
 .fb-template-tab-label {
   font-size: 12px;
   color: #e0e0e0;
   font-weight: 500;
+  flex: 1;
+}
+
+.fb-template-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.fb-template-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #64ffda;
+  flex-shrink: 0;
 }
 
 .fb-template-tab-remove {
